@@ -13,9 +13,12 @@ export type BreathWindowResolver = (q: number, staff?: string) => { start: numbe
 
 /** Shortest ramp, a tempo, or shape rise/fall, in quarter notes. */
 export const MIN_SECTION_EASE_Q = 0.5;
-/** Largest tempo change one section may make: 80% slower, or 4× faster (generous: real performances go far). */
+/** How far a broaden or push may go: 80% slower, or 4× faster (generous: real performances go far). */
 const MAX_SLOWER = 0.8;
 const MAX_FASTER = 3;
+/** The range of tempos a Slow down / Speed up may arrive at, as a fraction of the basic tempo. */
+const MIN_TARGET = 0.2;
+const MAX_TARGET = 4;
 
 export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, breathWindow: BreathWindowResolver): TimingGesture[] {
   const out: TimingGesture[] = [];
@@ -35,8 +38,7 @@ export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, br
     for (const [q0, end] of pairSpans(resolve(g.from), resolve(g.to))) {
       const q1 = Math.max(end, q0 + MIN_SECTION_EASE_Q);
       if (g.type === 'ramp') {
-        const amount = clamp(g.amount, 0, g.dir === 'slower' ? MAX_SLOWER : MAX_FASTER);
-        out.push({ kind: 'ramp', id: g.id, q0, q1, ratio: g.dir === 'slower' ? 1 - amount : 1 + amount });
+        out.push({ kind: 'ramp', id: g.id, q0, q1, target: clamp(g.target, MIN_TARGET, MAX_TARGET) });
       } else if (g.type === 'aTempo') {
         out.push({ kind: 'aTempo', id: g.id, q0, q1 });
       } else {

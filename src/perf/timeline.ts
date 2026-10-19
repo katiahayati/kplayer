@@ -19,9 +19,9 @@ export interface TempoPoint {
 
 /** Gestures with anchors already resolved to score positions. */
 export type TimingGesture =
-  /** Reaches `ratio` × tempo at q1 and holds it (rit. / accel.). */
-  | { kind: 'ramp'; id: string; q0: number; q1: number; ratio: number }
-  /** Smoothly cancels whatever ramp level is in effect, arriving at q1. */
+  /** Arrives at `target` × the basic tempo at q1, from wherever the tempo was, and holds it (rit. / accel.). */
+  | { kind: 'ramp'; id: string; q0: number; q1: number; target: number }
+  /** Returns to the basic tempo, arriving at q1. */
   | { kind: 'aTempo'; id: string; q0: number; q1: number }
   /** Eases to `ratio` × tempo at `peak`, holds it until `hold`, then eases back by `end` (broaden / push forward). */
   | { kind: 'shape'; id: string; start: number; peak: number; hold: number; end: number; ratio: number }
@@ -102,13 +102,11 @@ export function buildTimeMap(opts: TimeMapOptions): TimeMap {
     return sum;
   };
 
-  // Ramps and a tempos first, in order, so an a tempo knows what level to cancel.
-  const rampLike = gestures
-    .filter((g): g is Extract<TimingGesture, { kind: 'ramp' | 'aTempo' }> => g.kind === 'ramp' || g.kind === 'aTempo')
-    .sort((a, b) => a.q0 - b.q0);
-  for (const g of rampLike) {
-    const level = g.kind === 'ramp' ? Math.log(g.ratio) : -logOffset(g.q1);
-    terms.push({ lo: g.q0, hi: g.q1, tail: level, at: (q) => level * rampShape(q, g.q0, g.q1) });
+  // Sections first, in order: each moves from whatever level the earlier ones left to its own
+  // target (an a tempo's is the basic tempo), so its arrival never depends on them.
+  for (const g of gestures.filter(isSection).sort((a, b) => a.q0 - b.q0)) {
+    const change = Math.log(g.kind === 'ramp' ? g.target : 1) - logOffset(g.q1);
+    terms.push({ lo: g.q0, hi: g.q1, tail: change, at: (q) => change * rampShape(q, g.q0, g.q1) });
   }
 
   for (const g of gestures) {
@@ -214,6 +212,19 @@ export function buildTimeMap(opts: TimeMapOptions): TimeMap {
     bpmAt,
     ratioAt: (q) => Math.exp(logOffset(q)),
   };
+}
+
+type Section = Extract<TimingGesture, { kind: 'ramp' | 'aTempo' }>;
+const isSection = (g: TimingGesture): g is Section => g.kind === 'ramp' || g.kind === 'aTempo';
+
+/** The tempo in force at q from sections alone, as a fraction of the basic tempo. */
+export function sectionLevelAt(gestures: TimingGesture[], q: number): number {
+  let level = 1;
+  for (const g of gestures.filter(isSection).sort((a, b) => a.q0 - b.q0)) {
+    if (g.q0 >= q) break;
+    level = g.kind === 'ramp' ? g.target : 1;
+  }
+  return level;
 }
 
 function normalizeTempos(input: TempoPoint[]): TempoPoint[] {

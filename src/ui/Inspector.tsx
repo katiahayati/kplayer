@@ -5,6 +5,14 @@ import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
 
 export type SectionKind = 'slower' | 'faster' | 'broaden' | 'push' | 'aTempo';
+/** Where a Slow down / Speed up starts from, for showing it in tempo terms. */
+export interface RampInfo {
+  /** The tempo the earlier sections leave, as a fraction of the basic tempo. */
+  from: number;
+  /** That tempo in BPM, and the basic tempo where the section arrives. */
+  fromBpm: number;
+  basicBpm: number;
+}
 /** A note being picked for a shape: where its peak arrives, or where its return begins. */
 export type PickField = 'peakAt' | 'holdUntil';
 
@@ -16,6 +24,7 @@ interface Props {
   gestures: Gesture[];
   /** Where each gesture acts, in score positions (one span per pass). */
   spans: Map<string, { lo: number; hi: number }[]>;
+  rampInfo: Map<string, RampInfo>;
   /** The playhead, in score position. */
   playQ: number;
   breathResults: BreathResult[];
@@ -85,17 +94,17 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
   );
 }
 
-function GestureEditor({ gesture: g, breathResults, loopOn, onChange, onDelete, onToggleLoop, picking, onPick }: Props & { gesture: Gesture }) {
+function GestureEditor({ gesture: g, rampInfo, breathResults, loopOn, onChange, onDelete, onToggleLoop, picking, onPick }: Props & { gesture: Gesture }) {
   const set = (patch: Partial<Gesture>, field: string) => onChange(g.id, patch, `${g.id}:${field}`);
   return (
     <section className="panel">
-      <h2>{gestureTitle(g)}</h2>
+      <h2>{gestureTitle(g, rampInfo)}</h2>
       <p className="muted">{g.type === 'breath' ? `After ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</p>
 
       {g.type === 'breath' && <BreathFields g={g} result={breathResults.find((r) => r.id === g.id)} set={set} />}
-      {g.type === 'ramp' && <RampFields g={g} set={set} />}
+      {g.type === 'ramp' && <RampFields g={g} info={rampInfo.get(g.id)} set={set} />}
       {g.type === 'shape' && <ShapeFields g={g} set={set} picking={picking} onPick={onPick} />}
-      {g.type === 'aTempo' && <p className="muted">Eases back to the written tempo over this section.</p>}
+      {g.type === 'aTempo' && <p className="muted">Eases back to the basic tempo over this section.</p>}
 
       <div className="actions">
         <button className={loopOn ? 'active' : ''} onClick={onToggleLoop} title="Loop from a measure before to a measure after (L)">
@@ -144,19 +153,16 @@ function BreathFields({ g, result, set }: { g: BreathGesture; result?: BreathRes
   );
 }
 
-function RampFields({ g, set }: { g: RampGesture; set: Setter }) {
+function RampFields({ g, info, set }: { g: RampGesture; info?: RampInfo; set: Setter }) {
+  const pct = Math.round(g.target * 100);
   return (
     <>
-      <div className="presets">
-        <button className={g.dir === 'slower' ? 'active' : ''} onClick={() => set({ dir: 'slower' }, 'dir')}>
-          Slower
-        </button>
-        <button className={g.dir === 'faster' ? 'active' : ''} onClick={() => set({ dir: 'faster' }, 'dir')}>
-          Faster
-        </button>
-      </div>
-      <Slider label="Amount" value={Math.round(g.amount * 100)} min={1} max={g.dir === 'slower' ? 60 : 100} step={1} unit="%" onChange={(v) => set({ amount: v / 100 }, 'amount')} />
-      <p className="muted">Holds the new tempo afterwards, until an a tempo.</p>
+      <Slider label="Arrive at" value={pct} min={20} max={Math.max(200, pct)} step={1} unit="%" onChange={(v) => set({ target: v / 100 }, 'target')} />
+      <p className="muted">
+        Of the basic tempo
+        {info && `, from ${Math.round(info.from * 100)}%: ♩ = ${Math.round(info.fromBpm)} → ${Math.round(g.target * info.basicBpm)}`}. Holds it until the next
+        section. Changing or deleting earlier sections doesn't move it.
+      </p>
     </>
   );
 }
@@ -227,7 +233,7 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
  * whose tempo is still in force after it ended, and a playhead marker between
  * gestures when none is acting.
  */
-function GestureList({ gestures, gesture, onSelect, onClearAll, spans, playQ, index }: Props) {
+function GestureList({ gestures, gesture, onSelect, onClearAll, spans, rampInfo, playQ, index }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
   const eps = 1e-9;
   const start = (g: Gesture) => resolveAnchor(index, g.type === 'breath' ? g.at : g.from)[0] ?? Infinity;
@@ -278,9 +284,9 @@ function GestureList({ gestures, gesture, onSelect, onClearAll, spans, playQ, in
           const item = (
             <li key={g.id}>
               <button className={`${g.id === gesture?.id ? 'active' : ''}${g.enabled === false ? ' off' : ''}${state}`} onClick={() => onSelect(g.id)}>
-                <span className={`swatch ${swatch(g)}`} />
+                <span className={`swatch ${swatch(g, rampInfo)}`} />
                 <span>
-                  {gestureTitle(g)} <span className="muted">{g.type === 'breath' ? `after ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</span>
+                  {gestureTitle(g, rampInfo)} <span className="muted">{g.type === 'breath' ? `after ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</span>
                 </span>
                 {state && <span className={`tag${state}`}>{state === ' now' ? 'now' : 'holding'}</span>}
               </button>
@@ -312,12 +318,15 @@ export function anchorLabel(a: Anchor): string {
   return `m. ${a.label ?? a.measureIndex + 1}, ♩${beat}`;
 }
 
-function gestureTitle(g: Gesture): string {
+/** Whether a Slow down / Speed up goes slower or faster than the tempo it starts from. */
+const rampDir = (g: RampGesture, rampInfo: Map<string, RampInfo>) => (g.target < (rampInfo.get(g.id)?.from ?? 1) ? 'slower' : 'faster');
+
+function gestureTitle(g: Gesture, rampInfo: Map<string, RampInfo>): string {
   switch (g.type) {
     case 'breath':
       return `Breath · ${g.extraMs} ms`;
     case 'ramp':
-      return `${g.dir === 'slower' ? 'Slow down' : 'Speed up'} · ${Math.round(g.amount * 100)}%`;
+      return `${rampDir(g, rampInfo) === 'slower' ? 'Slow down' : 'Speed up'} to ${Math.round(g.target * 100)}%`;
     case 'shape':
       return `${g.gesture === 'broaden' ? 'Broaden' : 'Push forward'} · ${Math.round(g.amount * 100)}%`;
     case 'aTempo':
@@ -325,8 +334,8 @@ function gestureTitle(g: Gesture): string {
   }
 }
 
-function swatch(g: Gesture): string {
-  if (g.type === 'ramp') return g.dir;
+function swatch(g: Gesture, rampInfo: Map<string, RampInfo>): string {
+  if (g.type === 'ramp') return rampDir(g, rampInfo);
   if (g.type === 'shape') return g.gesture;
   return g.type;
 }

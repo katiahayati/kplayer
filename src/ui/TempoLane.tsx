@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ScoreIndex } from '../perf/anchors';
-import type { TimeMap, TimingGesture } from '../perf/timeline';
+import { sectionLevelAt, type TimeMap, type TimingGesture } from '../perf/timeline';
 
 interface Props {
   map: TimeMap;
@@ -68,7 +68,8 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
   const bands = timing.map((g, i) => {
     const [lo, hi] =
       g.kind === 'breath' || g.kind === 'shape' ? [g.start, g.end] : [g.q0, g.q1];
-    const cls = g.kind === 'ramp' ? (g.ratio < 1 ? 'slower' : 'faster') : g.kind === 'shape' ? (g.ratio < 1 ? 'broaden' : 'push') : g.kind;
+    const cls =
+      g.kind === 'ramp' ? (g.target < sectionLevelAt(timing, g.q0) ? 'slower' : 'faster') : g.kind === 'shape' ? (g.ratio < 1 ? 'broaden' : 'push') : g.kind;
     return { key: `${g.id}:${i}`, id: g.id, lo, hi, cls, breathQ: g.kind === 'breath' ? g.q : undefined };
   });
 

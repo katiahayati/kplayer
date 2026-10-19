@@ -68,7 +68,8 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
 - **Breaths** only where the singer has to steal time: punctuation with the next sung note straight after. Time taken
   in a rest is the conductor's tempo, carried by sections.
 - Real performances exceed the old per-section limits (Thielemann goes from 40 to 83 BPM within three bars), so
-  sections now allow up to 80% slower or 4× faster.
+  sections now arrive anywhere from 20% to 4× the basic tempo. Each stores that target relative to the basic tempo,
+  not as a change from the section before, so editing or deleting one section leaves the others where they were.
 
 ## Tooling
 

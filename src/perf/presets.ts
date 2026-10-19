@@ -11,6 +11,7 @@ export const BREATH_PRESETS: Record<BreathPresetKey, { label: string } & Pick<Br
 export const DEFAULT_BREATH_PRESET: BreathPresetKey = 'normal';
 
 export const SECTION_DEFAULTS = {
-  ramp: { amount: 0.15 },
+  /** A new Slow down / Speed up starts 15% away from the tempo where it begins. */
+  ramp: { change: 0.15 },
   shape: { amount: 0.1, peak: 0.65, releaseQ: 0 },
 };

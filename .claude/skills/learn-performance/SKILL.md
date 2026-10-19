@@ -116,6 +116,7 @@ These all happened on real recordings; each check takes seconds.
 Read `NOTES.md` ("Aligning recordings") for the background. In short: tempo is fitted on a smoothed curve, then the
 levels at the turning points are solved so the file stays in sync with the recording at every turning point
 (cumulative time, not per section, or one miss shifts everything after it). Levels stay within 15% of the measured
-shape so local noise can't make wild swings. Sections may change tempo by up to 80% slower or 4× faster, because
-real performances go that far (40 → 83 BPM within three bars). If you change the fitter, rerun
+shape so local noise can't make wild swings. Each section stores the tempo it arrives at as a fraction of the basic
+tempo (`target`), not a change from the one before, so the user can delete sections without moving the rest.
+Targets may go from 20% to 4× the basic tempo, because real performances go that far (40 → 83 BPM within three bars). If you change the fitter, rerun
 `npx vitest run` and the steps above on a recording you have already checked, and compare the reports.

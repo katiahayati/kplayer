@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildTimeMap, MIN_BREATH_RATIO, type TimingGesture } from '../../src/perf/timeline';
+import { buildTimeMap, MIN_BREATH_RATIO, sectionLevelAt, type TimingGesture } from '../../src/perf/timeline';
 
 const flat = (bpm: number, endQ: number, gestures: TimingGesture[] = []) =>
   buildTimeMap({ tempos: [{ q: 0, bpm }], endQ, gestures });
@@ -41,14 +41,14 @@ describe('identity time map', () => {
   });
 
   it('inverts', () => {
-    const map = flat(72, 40, [{ kind: 'ramp', id: 'r', q0: 8, q1: 16, ratio: 0.8 }]);
+    const map = flat(72, 40, [{ kind: 'ramp', id: 'r', q0: 8, q1: 16, target: 0.8 }]);
     for (let q = 0; q <= 40; q += 0.37) expect(map.qAt(map.T(q))).toBeCloseTo(q, 4);
   });
 });
 
 describe('ramps and a tempo', () => {
   it('reaches and holds the target tempo smoothly', () => {
-    const map = flat(100, 32, [{ kind: 'ramp', id: 'r', q0: 8, q1: 12, ratio: 0.85 }]);
+    const map = flat(100, 32, [{ kind: 'ramp', id: 'r', q0: 8, q1: 12, target: 0.85 }]);
     expect(map.bpmAt(7.9)).toBeCloseTo(100, 9);
     expect(map.bpmAt(12)).toBeCloseTo(85, 9);
     expect(map.bpmAt(20)).toBeCloseTo(85, 9);
@@ -59,8 +59,8 @@ describe('ramps and a tempo', () => {
 
   it('a tempo returns exactly to the written tempo', () => {
     const map = flat(100, 40, [
-      { kind: 'ramp', id: 'r1', q0: 4, q1: 8, ratio: 0.8 },
-      { kind: 'ramp', id: 'r2', q0: 10, q1: 12, ratio: 0.9 },
+      { kind: 'ramp', id: 'r1', q0: 4, q1: 8, target: 0.8 },
+      { kind: 'ramp', id: 'r2', q0: 10, q1: 12, target: 0.72 },
       { kind: 'aTempo', id: 'a', q0: 16, q1: 18 },
     ]);
     expect(map.bpmAt(14)).toBeCloseTo(72, 9);
@@ -69,6 +69,29 @@ describe('ramps and a tempo', () => {
     // Steepest point of a 28 BPM smootherstep over 2 quarters ≈ 26 BPM/quarter ≈ 0.05 per 1/512 step;
     // a jump would be ~28 in a single step.
     expect(roughness(map, 14, 20).maxStep).toBeLessThan(0.1);
+  });
+
+  it('each section arrives at its own target, whatever the sections before it do', () => {
+    const later: TimingGesture = { kind: 'ramp', id: 'r2', q0: 10, q1: 12, target: 0.9 };
+    const withRit = flat(100, 40, [{ kind: 'ramp', id: 'r1', q0: 4, q1: 8, target: 0.7 }, later]);
+    const withAccel = flat(100, 40, [{ kind: 'ramp', id: 'r1', q0: 4, q1: 8, target: 1.3 }, later]);
+    const alone = flat(100, 40, [later]);
+    expect(withRit.bpmAt(9)).toBeCloseTo(70, 9);
+    expect(withAccel.bpmAt(9)).toBeCloseTo(130, 9);
+    for (const map of [withRit, withAccel, alone]) {
+      expect(map.bpmAt(12)).toBeCloseTo(90, 9);
+      expect(map.bpmAt(30)).toBeCloseTo(90, 9);
+    }
+  });
+
+  it('knows the tempo the sections leave at each point', () => {
+    const sections: TimingGesture[] = [
+      { kind: 'ramp', id: 'r1', q0: 4, q1: 8, target: 0.8 },
+      { kind: 'shape', id: 's', start: 8, peak: 9, hold: 9, end: 10, ratio: 1.2 },
+      { kind: 'ramp', id: 'r2', q0: 10, q1: 12, target: 1.1 },
+      { kind: 'aTempo', id: 'a', q0: 16, q1: 18 },
+    ];
+    expect([0, 4, 6, 9, 10, 11, 16, 20].map((q) => sectionLevelAt(sections, q))).toEqual([1, 1, 0.8, 0.8, 0.8, 1.1, 1.1, 1]);
   });
 });
 
@@ -88,7 +111,7 @@ describe('phrase shapes', () => {
   it('overlapping gestures multiply (add in log space)', () => {
     const map = flat(100, 32, [
       { kind: 'shape', id: 's1', start: 4, peak: 8, hold: 8, end: 12, ratio: 1.1 },
-      { kind: 'ramp', id: 'r', q0: 2, q1: 6, ratio: 0.8 },
+      { kind: 'ramp', id: 'r', q0: 2, q1: 6, target: 0.8 },
     ]);
     expect(map.bpmAt(8)).toBeCloseTo(100 * 1.1 * 0.8, 9);
   });
@@ -175,7 +198,7 @@ describe('breaths', () => {
   });
 
   it('inside an accelerando, the music is back at the accelerando tempo after the note after', () => {
-    const ramp: TimingGesture = { kind: 'ramp', id: 'r', q0: 4, q1: 12, ratio: 1.12 };
+    const ramp: TimingGesture = { kind: 'ramp', id: 'r', q0: 4, q1: 12, target: 1.12 };
     const map = flat(60, 32, [ramp, breath(8, 0.3, 7.5, 8.5)]);
     const plain = flat(60, 32, [ramp]);
     for (const q of [6, 7.5, 8.5, 9, 10, 11]) expect(map.bpmAt(q)).toBeCloseTo(plain.bpmAt(q), 9);

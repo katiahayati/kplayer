@@ -30,14 +30,17 @@ export interface BreathGesture extends GestureBase {
   extraMs: number;
 }
 
-/** A gradual tempo change that holds its new tempo until an a tempo (rit. / accel.). */
+/**
+ * A gradual tempo change (rit. / accel.) that arrives at `target` and holds it
+ * until the next section. The target is relative to the basic tempo, not to the
+ * section before, so changing or deleting earlier sections never moves it.
+ */
 export interface RampGesture extends GestureBase {
   type: 'ramp';
-  dir: 'slower' | 'faster';
   from: Anchor;
   to: Anchor;
-  /** Fractional tempo change reached at `to`, e.g. 0.15 = 15%. */
-  amount: number;
+  /** Tempo reached at `to`, as a fraction of the basic tempo (written tempo × tempo factor), e.g. 0.85. */
+  target: number;
 }
 
 /** Smoothly returns to the written tempo, cancelling earlier ramps. */
@@ -74,7 +77,7 @@ export interface PartSetting {
 }
 
 export interface PerformanceDoc {
-  version: 1;
+  version: 2;
   score?: { name: string; sha256: string };
   /** Multiplies every written tempo. */
   tempoFactor: number;
@@ -84,5 +87,5 @@ export interface PerformanceDoc {
 }
 
 export function emptyDoc(): PerformanceDoc {
-  return { version: 1, tempoFactor: 1, parts: {}, gestures: [] };
+  return { version: 2, tempoFactor: 1, parts: {}, gestures: [] };
 }

@@ -42,6 +42,6 @@ for (const g of doc.gestures as any[]) {
   const [a, b] = g.type === 'breath' ? [g.at, g.at] : [g.from, g.to];
   const [qa, qb] = [resolveAnchor(score.index, a)[0], resolveAnchor(score.index, b)[0]];
   if (qb >= q0 && qa <= q1) {
-    console.log('  ' + (g.type === 'breath' ? `breath after ${label(g.at)}, +${g.extraMs} ms` : `${g.dir === 'slower' ? 'slow down' : 'speed up'} ${(g.amount * 100).toFixed(1)}%  ${label(g.from)} → ${label(g.to)}`));
+    console.log('  ' + (g.type === 'breath' ? `breath after ${label(g.at)}, +${g.extraMs} ms` : g.type === 'ramp' ? `to ${(g.target * 100).toFixed(0)}% of the basic tempo  ${label(g.from)} → ${label(g.to)}` : `${g.type}  ${label(g.from)} → ${label(g.to)}`));
   }
 }

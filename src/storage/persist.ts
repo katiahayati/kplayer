@@ -1,7 +1,7 @@
 // Autosave of performance documents in IndexedDB (keyed by the score's SHA-256),
 // plus JSON import/export of the sidecar file.
 
-import { emptyDoc, type Gesture, type PerformanceDoc } from '../perf/types';
+import { emptyDoc, type Anchor, type Gesture, type PerformanceDoc, type RampGesture } from '../perf/types';
 
 const DB_NAME = 'kplayer';
 const STORE = 'performances';
@@ -43,9 +43,41 @@ export async function save(sha256: string, doc: PerformanceDoc): Promise<void> {
 }
 
 export function parseDoc(raw: unknown): PerformanceDoc {
-  const doc = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Partial<PerformanceDoc>;
-  if (!doc || doc.version !== 1 || !Array.isArray(doc.gestures)) throw new Error('Not a kplayer performance file');
-  return { ...emptyDoc(), ...doc, parts: doc.parts ?? {}, gestures: doc.gestures.map(dropLegacyFields) };
+  const doc = (typeof raw === 'string' ? JSON.parse(raw) : raw) as Omit<Partial<PerformanceDoc>, 'version'> & { version?: number };
+  if (!doc || (doc.version !== 1 && doc.version !== 2) || !Array.isArray(doc.gestures)) throw new Error('Not a kplayer performance file');
+  let gestures = doc.gestures.map(dropLegacyFields);
+  if (doc.version === 1) gestures = sectionsToTargets(gestures);
+  return { ...emptyDoc(), ...doc, version: 2, parts: doc.parts ?? {}, gestures };
+}
+
+/**
+ * Version 1 stored each Slow down / Speed up as a change relative to the tempo
+ * before it ("15% slower"); version 2 stores the tempo it arrives at, relative to
+ * the basic tempo. Walking the sections in order converts one to the other, so
+ * the file plays exactly as before.
+ */
+function sectionsToTargets(gestures: Gesture[]): Gesture[] {
+  type Old = { dir?: 'slower' | 'faster'; amount?: number };
+  const at = (a: Anchor) => a.measureIndex * 1e4 + a.offsetQ;
+  const sections = gestures.filter((g) => g.type === 'ramp' || g.type === 'aTempo').sort((a, b) => at(a.from) - at(b.from));
+  const targets = new Map<string, number>();
+  let level = 1;
+  for (const g of sections) {
+    if (g.type === 'aTempo') {
+      if (g.enabled !== false) level = 1;
+      continue;
+    }
+    const { dir, amount = 0 } = g as Old;
+    const ratio = dir === 'slower' ? 1 - Math.min(Math.max(amount, 0), 0.8) : 1 + Math.min(Math.max(amount, 0), 3);
+    targets.set(g.id, level * ratio);
+    // A switched-off section didn't move the tempo then, so it doesn't now.
+    if (g.enabled !== false) level *= ratio;
+  }
+  return gestures.map((g) => {
+    if (g.type !== 'ramp') return g;
+    const { dir: _dir, amount: _amount, ...rest } = g as RampGesture & Old;
+    return { ...rest, target: Math.round((targets.get(g.id) ?? 1) * 1e5) / 1e5 };
+  });
 }
 
 /** Breaths used to carry ease lengths; they now always span the note before the breath. */

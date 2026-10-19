@@ -4,12 +4,12 @@ import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, reso
 import { compileGestures } from './perf/compile';
 import { BREATH_PRESETS, DEFAULT_BREATH_PRESET, SECTION_DEFAULTS } from './perf/presets';
 import { renderPerformanceMidi } from './perf/render';
-import { buildTimeMap, type TimeMap, type TimingGesture } from './perf/timeline';
+import { buildTimeMap, sectionLevelAt, type TimeMap, type TimingGesture } from './perf/timeline';
 import { emptyDoc, type Anchor, type Gesture, type PartSetting, type PerformanceDoc } from './perf/types';
 import { ScoreView, type BreathMarker } from './score/ScoreView';
 import { loadScore, type LoadedScore } from './score/verovio';
 import { downloadBlob, loadSaved, parseDoc, save } from './storage/persist';
-import { Inspector, type PickField, type SectionKind } from './ui/Inspector';
+import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
 import { Transport } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
@@ -269,6 +269,21 @@ export default function App() {
     }
     return spans;
   }, [allTiming]);
+  /** Where each Slow down / Speed up starts from, and the basic tempo where it arrives (first pass). */
+  const rampInfo = useMemo(() => {
+    const info = new Map<string, RampInfo>();
+    if (!score || !map) return info;
+    const basicBpm = (q: number) => map.bpmAt(q) / map.ratioAt(q);
+    for (const g of doc.gestures) {
+      if (g.type !== 'ramp') continue;
+      const [q0] = resolveAnchor(score.index, g.from);
+      const [q1] = resolveAnchor(score.index, g.to);
+      if (q0 === undefined || q1 === undefined) continue;
+      const from = sectionLevelAt(allTiming, q0);
+      info.set(g.id, { from, fromBpm: from * basicBpm(q0), basicBpm: basicBpm(Math.max(q0, q1 - 1e-6)) });
+    }
+    return info;
+  }, [score, map, doc.gestures, allTiming]);
   const pickField = picking && picking.gestureId === selectedGesture?.id ? picking.field : undefined;
 
   const { selectedIds, rangeIds } = useMemo(() => {
@@ -345,7 +360,11 @@ export default function App() {
     if (!noteRange) return;
     const { from, to } = noteRange;
     const id = newId();
-    if (kind === 'slower' || kind === 'faster') addGesture({ id, type: 'ramp', dir: kind, from, to, ...SECTION_DEFAULTS.ramp });
+    if (kind === 'slower' || kind === 'faster') {
+      const { change } = SECTION_DEFAULTS.ramp;
+      const target = sectionLevelAt(allTiming, noteRange.q0) * (kind === 'slower' ? 1 - change : 1 + change);
+      addGesture({ id, type: 'ramp', from, to, target: Math.round(target * 100) / 100 });
+    }
     else if (kind === 'broaden' || kind === 'push') addGesture({ id, type: 'shape', gesture: kind, from, to, ...SECTION_DEFAULTS.shape });
     else addGesture({ id, type: 'aTempo', from, to });
   };
@@ -481,6 +500,7 @@ export default function App() {
               gesture={selectedGesture}
               gestures={doc.gestures}
               spans={spansById}
+              rampInfo={rampInfo}
               playQ={playQ}
               breathResults={map.breaths}
               unusedBreathMarks={unusedBreathMarks.length}

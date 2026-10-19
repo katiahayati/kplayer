@@ -33,7 +33,10 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
   notehead broadens. If the two notes are too short for the time you ask for, kplayer says so.
 - Clicking near a note or rest selects it, so you don't have to hit the inked part of a hollow notehead or a thin
   rest.
-- **Slow down** / **Speed up** hold their new tempo until an **A tempo**. **Broaden** and **Push forward** return by
+- **Slow down** / **Speed up** arrive at a tempo you set as a percentage of the basic tempo (the written tempo times
+  the **Tempo** slider), e.g. "Slow down to 85%", and hold it until the next section; **A tempo** goes back to 100%.
+  Because a section isn't relative to the one before it, changing or deleting an earlier rit. never moves the later
+  ones. (Files from before this change are converted when loaded and play as they did.) **Broaden** and **Push forward** return by
   the end of the section. With the peak at 100% plus some "settle after" time, the next phrase starts from the
   broadened tempo and gathers itself.
 - For a Broaden or Push forward you can pick the exact note its **peak** arrives on, and a note to **hold** the peak

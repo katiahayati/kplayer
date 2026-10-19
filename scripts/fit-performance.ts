@@ -312,17 +312,9 @@ if (process.env.FIT_DEBUG) {
 // to be worth a section isn't lost: it carries into the next one.
 let reached = 0;
 const section = (q0: number, q1: number, level: number) => {
-  const ratio = Math.exp(level - reached);
-  if (Math.abs(Math.log(ratio)) < 0.005) return;
+  if (Math.abs(level - reached) < 0.005) return;
   reached = level;
-  gestures.push({
-    id: `s${++id}`,
-    type: 'ramp',
-    dir: ratio < 1 ? 'slower' : 'faster',
-    from: anchor(q0),
-    to: endAnchor(q1),
-    amount: Math.round(Math.abs(ratio - 1) * 1e5) / 1e5,
-  });
+  gestures.push({ id: `s${++id}`, type: 'ramp', from: anchor(q0), to: endAnchor(q1), target: Math.round(Math.exp(level) * 1e5) / 1e5 });
 };
 // Settle into the opening tempo over the first half beat, then follow the turning points.
 section(0, nodes[0], z[0]);
@@ -374,7 +366,7 @@ console.error(
 );
 
 const doc: PerformanceDoc & { source: string } = {
-  version: 1,
+  version: 2,
   source: `Fitted to ${performer} (${alignment.recording}) by kplayer's recording aligner${opts.voice ? ', following the singer' : ''}`,
   score: { name: score.name, sha256: score.sha256 },
   tempoFactor,
