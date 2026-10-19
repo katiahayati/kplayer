@@ -143,14 +143,17 @@ export function loopAround(index: ScoreIndex, q0: number, q1: number): { q0: num
 
 /**
  * Onset of the note a breath at q follows: the latest-starting note or rest in
- * `staff` that sounds into q. Without a staff, every staff is considered.
+ * `staff` that sounds into q (for a tied note, the start of the tie). Without a
+ * staff, every staff is considered.
  */
 export function noteBefore(staffSpans: Map<string, Span[]>, q: number, staff?: string): number | undefined {
+  // MIDI notes end a tick (1/120 quarter) before their written end.
+  const eps = 0.02;
   const lists = staff !== undefined && staffSpans.has(staff) ? [staffSpans.get(staff)!] : [...staffSpans.values()];
   let best: number | undefined;
   for (const list of lists) {
     for (const s of list) {
-      if (s.qOn < q - 1e-6 && s.qOff > q - 1e-6 && (best === undefined || s.qOn > best)) best = s.qOn;
+      if (s.qOn < q - eps && s.qOff > q - eps && (best === undefined || s.qOn > best)) best = s.qOn;
     }
   }
   return best;

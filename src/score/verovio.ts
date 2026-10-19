@@ -14,7 +14,10 @@ export interface RenderedScore {
   events: ScoreEvents;
   /** Base note/rest ID → staff number. */
   staffOf: Map<string, string>;
-  /** Staff number → spans of its notes and rests (every pass), for finding the note before a breath. */
+  /**
+   * Staff number → spans of its notes (tied notes joined, from the MIDI) and rests (from the timemap),
+   * every pass, for finding the note before a breath.
+   */
   staffSpans: Map<string, Span[]>;
   /** Breath marks written in the score, anchored after the note each follows. */
   breathMarks: WrittenBreath[];
@@ -81,13 +84,15 @@ export function renderLoaded(tk: VerovioToolkit): RenderedScore {
   const index = buildScoreIndex(timemap, (id) => attrOf(id).n ?? '', events.endQ);
 
   const docs = pages.map((p) => new DOMParser().parseFromString(p, 'image/svg+xml'));
-  const staffOf = staffOfElements(docs, attrOf);
+  const { staffOf, rests } = staffOfElements(docs, attrOf);
   const staffSpans = new Map<string, Span[]>();
-  for (const [id, spans] of index.spans) {
+  const add = (staff: string, spans: Span[]) => staffSpans.set(staff, [...(staffSpans.get(staff) ?? []), ...spans]);
+  // Verovio writes one MIDI track per staff, in order.
+  events.trackNotes.forEach((notes, track) => notes.length && add(String(track + 1), notes.map(({ qOn, qOff }) => ({ qOn, qOff }))));
+  for (const id of rests) {
     const staff = staffOf.get(id);
-    if (staff === undefined) continue;
-    if (!staffSpans.has(staff)) staffSpans.set(staff, []);
-    staffSpans.get(staff)!.push(...spans);
+    const spans = index.spans.get(id);
+    if (staff !== undefined && spans) add(staff, spans);
   }
   return { pages, timemap, index, events, staffOf, staffSpans, breathMarks: findBreathMarks(docs, index, attrOf) };
 }

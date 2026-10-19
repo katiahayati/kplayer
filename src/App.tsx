@@ -400,6 +400,8 @@ export default function App() {
         playing={playing}
         canPlay={!!score}
         position={position}
+        bpm={map?.bpmAt(playQ)}
+        bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
         status={status}
         expressive={expressive}
         tempoFactor={doc.tempoFactor}

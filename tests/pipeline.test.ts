@@ -91,6 +91,20 @@ describe('performance MIDI', () => {
     expect(chord(breathed).off - chord(breathed).on - (chord(plain).off - chord(plain).on)).toBeCloseTo(0.3, 2);
   });
 
+  it('a breath after a tied note stretches the whole tie, not just its last notehead', () => {
+    const plain = perform([]);
+    // Voice E5 is tied from bar 1 (q 2) into bar 2 (to q 5); breathe after it.
+    const breathed = perform([breath({ measureIndex: 1, offsetQ: 1 })]);
+    const voice = (ns: typeof plain, i: number) => ns.filter((n) => n.track === 0)[i];
+    expect(voice(plain, 2).midi).toBe(76);
+    expect(voice(breathed, 2).on).toBeCloseTo(voice(plain, 2).on, 3);
+    expect(voice(breathed, 2).off - voice(breathed, 2).on - (voice(plain, 2).off - voice(plain, 2).on)).toBeCloseTo(0.3, 2);
+    expect(voice(breathed, 3).on - voice(plain, 3).on).toBeCloseTo(0.3, 2);
+    // Spread over the 3 tied beats, not crammed into the last one.
+    const map = mapFor([breath({ measureIndex: 1, offsetQ: 1 })]);
+    expect(map.breaths[0].minRatio).toBeCloseTo(2.5 / 2.8, 2);
+  });
+
   it('a breath in a repeated bar applies on both passes', () => {
     const plain = perform([]);
     const breathed = perform([breath({ measureIndex: 3, offsetQ: 4 }, 250)]);

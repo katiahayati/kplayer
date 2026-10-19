@@ -37,6 +37,8 @@ export interface ScorePart {
 
 export interface ScoreEvents {
   parts: ScorePart[];
+  /** Notes of each source MIDI track (staff n is track n − 1), tied notes already joined. */
+  trackNotes: ScoreNote[][];
   tempos: TempoPoint[];
   endQ: number;
 }
@@ -56,6 +58,7 @@ export function parseScoreMidi(bytes: ArrayLike<number> | ArrayBuffer): ScoreEve
   const ppq = midi.header.ppq;
   const tempos = midi.header.tempos.map((t) => ({ q: t.ticks / ppq, bpm: t.bpm }));
   const byChannel = new Map<number, ScorePart>();
+  const trackNotes: ScoreNote[][] = midi.tracks.map(() => []);
   let endQ = 0;
   midi.tracks.forEach((t, track) => {
     if (!t.notes.length) return;
@@ -76,6 +79,7 @@ export function parseScoreMidi(bytes: ArrayLike<number> | ArrayBuffer): ScoreEve
     for (const n of t.notes) {
       const note = { midi: n.midi, velocity: n.velocity, qOn: n.ticks / ppq, qOff: (n.ticks + n.durationTicks) / ppq };
       part.notes.push(note);
+      trackNotes[track].push(note);
       endQ = Math.max(endQ, note.qOff);
     }
     for (const cc of Object.values(t.controlChanges).flat()) {
@@ -87,7 +91,7 @@ export function parseScoreMidi(bytes: ArrayLike<number> | ArrayBuffer): ScoreEve
     p.notes.sort((a, b) => a.qOn - b.qOn || a.midi - b.midi);
     p.controls.sort((a, b) => a.q - b.q);
   }
-  return { parts, tempos, endQ };
+  return { parts, trackNotes, tempos, endQ };
 }
 
 export interface RenderOptions {

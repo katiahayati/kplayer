@@ -7,6 +7,9 @@ interface Props {
   playing: boolean;
   canPlay: boolean;
   position: string;
+  /** Current tempo at the playhead, and how far your phrasing moves it from the written tempo. */
+  bpm?: number;
+  bpmChange?: number;
   status?: string;
   expressive: boolean;
   tempoFactor: number;
@@ -63,6 +66,18 @@ export function Transport(p: Props) {
           <button className="play" onClick={p.onPlayPause} title="Play / pause (Space)">
             {p.playing ? '❚❚ Pause' : '▶ Play'}
           </button>
+          {p.bpm !== undefined && (
+            <span className="bpm" title="Tempo at the playhead">
+              ♩ = {Math.round(p.bpm)}
+              {!!p.bpmChange && (
+                <span className="muted">
+                  {' '}
+                  ({p.bpmChange > 0 ? '+' : ''}
+                  {p.bpmChange}%)
+                </span>
+              )}
+            </span>
+          )}
           <span className="position">{p.position}</span>
           {p.loopLabel && (
             <span className="pill loop">
