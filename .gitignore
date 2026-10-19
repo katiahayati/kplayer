@@ -1,0 +1,5 @@
+node_modules/
+dist/
+public/soundfonts/*.sf2
+public/soundfonts/*.sf3
+*.local
