@@ -69,7 +69,7 @@ export async function loadScore(file: File): Promise<LoadedScore> {
 }
 
 /** Everything the player needs from a toolkit that has a score loaded. */
-export function renderLoaded(tk: VerovioToolkit): RenderedScore {
+export function renderLoaded(tk: VerovioToolkit, { tremolos: expand = true } = {}): RenderedScore {
   const pages: string[] = [];
   for (let p = 1; p <= tk.getPageCount(); p++) pages.push(tk.renderToSVG(p));
   const timemap = tk.renderToTimemap({ includeMeasures: true, includeRests: true }) as TimemapEntry[];
@@ -81,7 +81,7 @@ export function renderLoaded(tk: VerovioToolkit): RenderedScore {
   };
   const index = buildScoreIndex(timemap, (id) => attrOf(id).n ?? '', midiEvents.endQ);
   // Verovio's MIDI drops fingered tremolos; put them back.
-  const tremolos = findTremolos(tk.getMEI());
+  const tremolos = expand ? findTremolos(tk.getMEI()) : [];
   const events = tremolos.length
     ? expandTremolos(midiEvents, tremolos, (id) => tk.getMIDIValuesForElement(id).pitch, (id) => index.spans.get(id) ?? [])
     : midiEvents;

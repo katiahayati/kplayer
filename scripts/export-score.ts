@@ -1,12 +1,12 @@
 // Writes a score's notes (score positions in quarter notes, pitches, parts) as
 // JSON, for aligning a recording to it with tools/align_recording.py.
-// Usage: npx tsx scripts/export-score.ts score.mxl > score-notes.json
+// Usage: npx tsx scripts/export-score.ts score.mxl [--no-tremolos] > score-notes.json
 
 import { loadScoreFile } from './lib/load-score';
 
 const file = process.argv[2];
 if (!file) throw new Error('Usage: export-score.ts <score.musicxml|.mxl>');
-const score = await loadScoreFile(file);
+const score = await loadScoreFile(file, { tremolos: !process.argv.includes('--no-tremolos') });
 // The vocal line: the part on the staff that carries lyrics.
 const voiceStaff = [...score.lyrics.keys()].map((id) => score.staffOf.get(id)).find((s) => s);
 const voicePart = score.events.parts.find((p) => voiceStaff !== undefined && p.tracks.includes(Number(voiceStaff) - 1));

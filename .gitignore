@@ -13,3 +13,4 @@ public/soundfonts/*.sf3
 /*.wav
 .venv/
 __pycache__/
+/analysis/

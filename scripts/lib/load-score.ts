@@ -13,7 +13,7 @@ export interface NodeScore extends RenderedScore {
   lyrics: Map<string, string>;
 }
 
-export async function loadScoreFile(file: string): Promise<NodeScore> {
+export async function loadScoreFile(file: string, options: { tremolos?: boolean } = {}): Promise<NodeScore> {
   globalThis.DOMParser ??= new Window().DOMParser as unknown as typeof DOMParser;
   const { default: createModule } = await import('verovio/wasm');
   const { VerovioToolkit } = await import('verovio/esm');
@@ -24,7 +24,7 @@ export async function loadScoreFile(file: string): Promise<NodeScore> {
   const ok = isZip ? tk.loadZipDataBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)) : tk.loadData(bytes.toString('utf8'));
   if (!ok) throw new Error(`Verovio couldn't read ${file}`);
   return {
-    ...renderLoaded(tk),
+    ...renderLoaded(tk, options),
     name: path.basename(file),
     sha256: createHash('sha256').update(bytes).digest('hex'),
     lyrics: lyricsFromMei(tk.getMEI()),
