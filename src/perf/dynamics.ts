@@ -72,7 +72,7 @@ export function levelCurve(events: LevelEvent[]): (q: number) => number {
 }
 
 /** The written and added dynamics of each part, as level curves. */
-function partLevels(input: DynamicsInput): Map<number, (q: number) => number> {
+export function partLevels(input: DynamicsInput): Map<number, (q: number) => number> {
   const { events, doc, resolve } = input;
   const partOfStaff = new Map<number, number>();
   for (const p of events.parts) for (const t of p.tracks) partOfStaff.set(t + 1, p.index);
@@ -80,7 +80,9 @@ function partLevels(input: DynamicsInput): Map<number, (q: number) => number> {
   for (const part of events.parts) {
     const forPart = (p: number | undefined) => p === undefined || p === part.index;
     const marks: { q: number; level: number }[] = [];
-    for (const m of input.marks) {
+    const ownShape = [...(doc?.marks ?? []), ...(doc?.hairpins ?? [])].some((g) => forPart(g.part));
+    const written = doc?.written !== false || !ownShape;
+    for (const m of written ? input.marks : []) {
       const level = levelOf(m.velocity ?? m.text) ?? levelOf(m.text);
       if (level !== undefined && partOfStaff.get(m.staff) === part.index) marks.push({ q: m.q, level });
     }
@@ -91,7 +93,7 @@ function partLevels(input: DynamicsInput): Map<number, (q: number) => number> {
     marks.sort((a, b) => a.q - b.q);
 
     const ramps: { q0: number; q1: number; form: 'cres' | 'dim'; level?: number }[] = [];
-    for (const h of input.hairpins) if (partOfStaff.get(h.staff) === part.index) ramps.push({ ...h });
+    for (const h of written ? input.hairpins : []) if (partOfStaff.get(h.staff) === part.index) ramps.push({ ...h });
     for (const h of doc?.hairpins ?? []) {
       if (!forPart(h.part)) continue;
       for (const [q0, q1] of pairSpans(resolve(h.from), resolve(h.to))) if (q1 > q0) ramps.push({ q0, q1, form: h.form, level: levelOf(h.level) });

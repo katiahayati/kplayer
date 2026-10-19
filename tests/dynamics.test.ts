@@ -88,6 +88,13 @@ describe('written dynamics', () => {
     expect(velocities(shaped, (n) => n.layer === 2)).toEqual([49, 49, Math.round(Math.sqrt(49 * 72)), 72]);
   });
 
+  it("a performance with its own shape can replace the score's dynamics", () => {
+    const own = shape({ voices: [], written: false, marks: [{ id: 'm', at: bar(1), level: 60 }], hairpins: [{ id: 'h', from: bar(3), to: bar(4), form: 'dim', level: 40 }] });
+    expect(velocities(own, (n) => n.layer === 1)).toEqual([60, 60, 60, 40, 40, 40]);
+    // Without dynamics of its own, the score's still play.
+    expect(velocities(shape({ voices: [], written: false }), (n) => n.layer === 1)).toEqual([49, 49, 88, 88, 32, 32]);
+  });
+
   it('dynamics added by the performance apply from where they are', () => {
     const shaped = shape({ voices: [], marks: [{ id: 'm', at: bar(1, 2), level: 'ff' }] });
     expect(velocities(shaped, (n) => n.layer === 2)).toEqual([49, 49, 101, 101]);

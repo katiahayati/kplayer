@@ -148,8 +148,14 @@ export interface PedalSpan {
   part?: number;
 }
 
-/** How loud each note plays, on top of the score's own dynamics, which always apply. */
+/** How loud each note plays: the score's dynamics (or the performance's own), and the voicing on top. */
 export interface DynamicsDoc {
+  /**
+   * Play the score's written dynamics and hairpins (the default). Off when `marks` and `hairpins` give
+   * the whole shape themselves, as a shape learned from a recording does; then parts the performance
+   * gives no dynamics of its own still play the score's.
+   */
+  written?: boolean;
   voices: VoiceRule[];
   marks?: DynamicMarkGesture[];
   hairpins?: HairpinGesture[];
