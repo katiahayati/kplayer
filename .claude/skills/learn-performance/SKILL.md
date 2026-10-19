@@ -53,7 +53,12 @@ Use a work folder `analysis/<short-name>/` (git-ignored). `G=.claude/skills/lear
    `$G/guard.sh .venv/bin/python tools/align_voice.py analysis/X/score-notes.json analysis/X/alignment.json analysis/X/sep/htdemucs/music/vocals.wav START analysis/X/voice.json`.
 6. **Fit:** `npx tsx scripts/fit-performance.ts score.mxl analysis/X/alignment.json OUT.kplayer.json --performer "Name" --voice analysis/X/voice.json --curves analysis/X/curves.csv`
    (no `--voice` for instrumental pieces). It reports how far the file is from the recording at every note
-   onset. A good fit: median ≈ 0.1 s, 90% within ≈ 0.3–0.4 s.
+   onset (a good fit: median ≈ 0.1 s, 90% within ≈ 0.3–0.4 s) and how jumpy its sections are.
+   A faithful fit keeps the performer's local wobbles, which on piano can sound "crazy". When the user wants the
+   big gestures and breaths without the futzing, refit with `--smooth 16 --turn 8 --tolerance 40 --sync 0.3`
+   (four-bar smoothing, 8% turning points, no added detail, shape over exact timing). For Thielemann/Fleming that
+   took 76 sections to 28 and beats changing >15% from 7 to 1, while drifting up to about 2 s from the recording
+   locally. Six-bar smoothing (`--smooth 24 --turn 10`) began erasing real phrase shape. Plot both to compare.
 7. **Check against the singer:** `npx tsx scripts/check-voice.ts score.mxl OUT.kplayer.json analysis/X/voice.json`
    gives the median and the bars more than 0.3 s off. Plot with `.venv/bin/python $G/plot_fit.py analysis/X`
    (writes `analysis/X/fit.png`; look at it with Read). Real shaping is smooth phrase-level waves; spikes of ±30%

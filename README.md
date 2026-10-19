@@ -84,6 +84,11 @@ npm run check-voice -- song.mxl song.performer.kplayer.json /tmp/voice.json   # 
 
 Demucs needs about 4.5 GB of memory for a 7-minute song.
 
+A faithful fit keeps every local tempo wobble, which can sound erratic on piano. For a calmer version that keeps the
+big gestures and the breaths, add `--smooth 16 --turn 8 --tolerance 40 --sync 0.3`: four-bar smoothing, turning
+points only for changes of 8% or more, no extra detail, and shape preferred over exact timing. The fit reports how
+jumpy the sections are (the largest one-beat change, and how many beats change by more than 15%).
+
 The aligner ([synctoolbox](https://github.com/meinardmueller/synctoolbox)) lines the recording up with the score
 note by note: any key or tuning difference, and silence at either end, are handled. The fitting step then checks
 the result with kplayer's own timing engine and prints how closely it follows the recording. The score must match

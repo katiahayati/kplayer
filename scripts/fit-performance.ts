@@ -6,6 +6,10 @@
 //
 // Usage: npx tsx scripts/fit-performance.ts score.mxl alignment.json out.kplayer.json
 //          [--performer "Name"] [--voice voice.json] [--curves curves.csv]
+//          [--smooth Q] [--turn %] [--tolerance %] [--sync W]
+// The last four trade detail for smoothness: --smooth 16 --turn 8 --tolerance 30 keeps the
+// phrase-level shape and drops local wobbles; a lower --sync lets the tempo stay smooth at the
+// cost of following the recording's timing less exactly.
 // --voice takes the singer's note times (tools/align_voice.py): where she
 // sings, her timing corrects the full-score alignment.
 
@@ -18,10 +22,6 @@ import { buildTimeMap, type TempoPoint } from '../src/perf/timeline';
 import type { Anchor, Gesture, PerformanceDoc } from '../src/perf/types';
 import { loadScoreFile } from './lib/load-score';
 
-/** Smoothing of the measured tempo, in quarter notes (about two bars of 4/4). */
-const SMOOTH_Q = 8;
-/** A tempo turning point must differ from the previous one by at least this ratio. */
-const TURN = Math.log(1.05);
 /** Breaths shorter than this are left out. */
 const MIN_BREATH_MS = 100;
 /** Grid for sampling the tempo, and for placing section ends, in quarter notes. */
@@ -30,8 +30,20 @@ const SNAP = 0.5;
 
 const { positionals, values: opts } = parseArgs({
   allowPositionals: true,
-  options: { performer: { type: 'string', default: 'the recording' }, voice: { type: 'string' }, curves: { type: 'string' } },
+  options: {
+    performer: { type: 'string', default: 'the recording' },
+    voice: { type: 'string' },
+    curves: { type: 'string' },
+    smooth: { type: 'string', default: '8' },
+    turn: { type: 'string', default: '5' },
+    tolerance: { type: 'string', default: '10' },
+    sync: { type: 'string', default: '1' },
+  },
 });
+/** Smoothing of the measured tempo, in quarter notes (8: about two bars of 4/4). */
+const SMOOTH_Q = Number(opts.smooth);
+/** A tempo turning point must differ from the previous one by at least this much. */
+const TURN = Math.log(1 + Number(opts.turn) / 100);
 const [scoreFile, alignmentFile, outFile] = positionals;
 if (!outFile) throw new Error('Usage: fit-performance.ts score.mxl alignment.json out.kplayer.json [--performer "Name"] [--voice voice.json] [--curves curves.csv]');
 const { performer, curves: curvesFile } = opts;
@@ -152,7 +164,7 @@ let knots = [...new Set(turns.map((i) => Math.round(grid[i] / SNAP) * SNAP))].so
 
 // Where a smooth S-curve between two turning points strays from the measured
 // shape by more than FIT_TOLERANCE, add a turning point at the worst spot.
-const FIT_TOLERANCE = Math.log(1.1);
+const FIT_TOLERANCE = Math.log(1 + Number(opts.tolerance) / 100);
 for (let pass = 0; pass < 20; pass++) {
   const added: number[] = [];
   for (let i = 0; i + 1 < knots.length; i++) {
@@ -258,7 +270,9 @@ const segment = (g: { a: number; b: number }, za: number, zb: number) => {
   }
   return { d, dA, dB };
 };
-const LAMBDA = 4; // seconds² per (log tempo)²: how strongly levels stay near the measured shape
+// How strongly levels stay near the measured shape, against keeping in sync with the recording
+// (seconds² per (log tempo)²). --sync scales the timing side: below 1, shape wins more often.
+const LAMBDA = 4 / Math.max(Number(opts.sync), 1e-3);
 /** Levels never move further than this from the measured curve (log tempo). */
 const MAX_SHIFT = Math.log(1.15);
 // Fit cumulative time: the file should be in sync with the recording at every
@@ -349,6 +363,15 @@ console.error('  ' + report('written tempo only', buildTimeMap({ tempos, endQ })
 console.error('  ' + report('basic tempo only', buildTimeMap({ tempos, endQ, tempoFactor })));
 console.error('  ' + report('+ sections', mapOf(sectionsOnly)));
 console.error('  ' + report('+ sections + breaths', finalMap));
+// How jumpy the sections are (breaths left out: they're meant to be local): the biggest tempo
+// change within one beat, and how many beats change by more than 15%.
+const sectionMap = mapOf(sectionsOnly);
+const swings: number[] = [];
+for (let q = 0; q + 1 <= lastOnset; q += 1) swings.push(Math.abs(Math.log(sectionMap.bpmAt(q + 1) / sectionMap.bpmAt(q))));
+console.error(
+  `tempo swings (sections only): largest within one beat ${Math.round((Math.exp(Math.max(...swings)) - 1) * 100)}%, ` +
+    `beats changing more than 15%: ${swings.filter((s) => s > Math.log(1.15)).length} of ${swings.length}`,
+);
 
 const doc: PerformanceDoc & { source: string } = {
   version: 1,
