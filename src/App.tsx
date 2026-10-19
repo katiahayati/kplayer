@@ -228,6 +228,12 @@ export default function App() {
     },
     [doc, setDoc, loopGestureId],
   );
+  const clearAll = useCallback(() => {
+    setDoc({ ...doc, gestures: [] });
+    setSelection({ kind: 'none' });
+    setLoopGestureId(undefined);
+    setPicking(undefined);
+  }, [doc, setDoc]);
   const addGesture = (g: Gesture) => {
     setDoc({ ...doc, gestures: [...doc.gestures, g] });
     setSelection({ kind: 'gesture', id: g.id });
@@ -254,6 +260,15 @@ export default function App() {
   }, [score, selection]);
 
   const selectedGesture = selection.kind === 'gesture' ? doc.gestures.find((g) => g.id === selection.id) : undefined;
+  /** Where each gesture acts, in score positions (one span per pass through repeats). */
+  const spansById = useMemo(() => {
+    const spans = new Map<string, { lo: number; hi: number }[]>();
+    for (const g of allTiming) {
+      const [lo, hi] = extent(g);
+      spans.set(g.id, [...(spans.get(g.id) ?? []), { lo, hi }]);
+    }
+    return spans;
+  }, [allTiming]);
   const pickField = picking && picking.gestureId === selectedGesture?.id ? picking.field : undefined;
 
   const { selectedIds, rangeIds } = useMemo(() => {
@@ -465,6 +480,8 @@ export default function App() {
               noteSelection={noteRange}
               gesture={selectedGesture}
               gestures={doc.gestures}
+              spans={spansById}
+              playQ={playQ}
               breathResults={map.breaths}
               unusedBreathMarks={unusedBreathMarks.length}
               onImportBreathMarks={importBreathMarks}
@@ -473,6 +490,7 @@ export default function App() {
               onAddSection={addSection}
               onChange={updateGesture}
               onDelete={deleteGesture}
+              onClearAll={clearAll}
               onToggleLoop={toggleLoop}
               picking={pickField}
               onPick={(field) => setPicking(field && selectedGesture ? { gestureId: selectedGesture.id, field } : undefined)}

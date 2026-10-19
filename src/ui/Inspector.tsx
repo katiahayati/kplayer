@@ -1,4 +1,5 @@
-import type { ScoreIndex } from '../perf/anchors';
+import { useEffect, useRef } from 'react';
+import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors';
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
@@ -13,6 +14,10 @@ interface Props {
   noteSelection?: { from: Anchor; to: Anchor; single: boolean };
   gesture?: Gesture;
   gestures: Gesture[];
+  /** Where each gesture acts, in score positions (one span per pass). */
+  spans: Map<string, { lo: number; hi: number }[]>;
+  /** The playhead, in score position. */
+  playQ: number;
   breathResults: BreathResult[];
   /** Written breath marks in the score that aren't breaths yet. */
   unusedBreathMarks: number;
@@ -22,6 +27,8 @@ interface Props {
   onAddSection: (kind: SectionKind) => void;
   onChange: (id: string, patch: Partial<Gesture>, key: string) => void;
   onDelete: (id: string) => void;
+  /** Removes every gesture (undoable). */
+  onClearAll: () => void;
   onToggleLoop: () => void;
   picking?: PickField;
   onPick: (field?: PickField) => void;
@@ -214,21 +221,74 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
   );
 }
 
-function GestureList({ gestures, gesture, onSelect }: Props) {
+/**
+ * Every gesture, in score order, marked against the playhead: "now" for those
+ * acting at the playhead, "holding" for the Slow down / Speed up / A tempo
+ * whose tempo is still in force after it ended, and a playhead marker between
+ * gestures when none is acting.
+ */
+function GestureList({ gestures, gesture, onSelect, onClearAll, spans, playQ, index }: Props) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const eps = 1e-9;
+  const start = (g: Gesture) => resolveAnchor(index, g.type === 'breath' ? g.at : g.from)[0] ?? Infinity;
+  const sorted = [...gestures].sort((a, b) => start(a) - start(b) || order(a) - order(b));
+  const now = new Set(sorted.filter((g) => (spans.get(g.id) ?? []).some((s) => playQ >= s.lo - eps && playQ < s.hi - eps)).map((g) => g.id));
+  // The tempo you hear between sections was set by the last one to finish before the playhead.
+  const tempoSetters = sorted.filter((g) => g.type === 'ramp' || g.type === 'aTempo');
+  const finished = (g: Gesture) => Math.max(-Infinity, ...(spans.get(g.id) ?? []).filter((s) => s.hi <= playQ + eps).map((s) => s.hi));
+  const holding = tempoSetters.some((g) => now.has(g.id))
+    ? undefined
+    : tempoSetters.filter((g) => finished(g) > -Infinity).sort((a, b) => finished(b) - finished(a))[0]?.id;
+  // With nothing acting at the playhead, mark where it sits in the list.
+  const markerAt = now.size ? -1 : (() => {
+    const i = sorted.findIndex((g) => start(g) > playQ + eps);
+    return i === -1 ? sorted.length : i;
+  })();
+  const bar = playedMeasureAt(index, playQ);
+  const focus = now.size ? [...now].join() : `${holding ?? ''}|${markerAt}`;
+
+  useEffect(() => {
+    listRef.current?.querySelector('.now, .holding, .playhead-marker')?.scrollIntoView?.({ block: 'nearest' });
+  }, [focus]);
+
   if (!gestures.length) return null;
-  const sorted = [...gestures].sort((a, b) => order(a) - order(b));
+  const marker = (
+    <li key="playhead" className="playhead-marker">
+      playhead{bar ? `, m. ${index.measures[bar.measureIndex]?.label}` : ''}
+    </li>
+  );
   return (
     <section className="panel list">
-      <h3>In this performance</h3>
-      <ul>
-        {sorted.map((g) => (
-          <li key={g.id}>
-            <button className={`${g.id === gesture?.id ? 'active' : ''}${g.enabled === false ? ' off' : ''}`} onClick={() => onSelect(g.id)}>
-              <span className={`swatch ${swatch(g)}`} />
-              {gestureTitle(g)} <span className="muted">{anchorLabel(g.type === 'breath' ? g.at : g.from)}</span>
-            </button>
-          </li>
-        ))}
+      <div className="list-head">
+        <h3>In this performance</h3>
+        <button
+          className="danger small"
+          title="Remove every breath and section (Ctrl+Z undoes it)"
+          onClick={() => {
+            const n = gestures.length;
+            if (confirm(`Remove all ${n} breath${n === 1 ? '' : 's'} and section${n === 1 ? '' : 's'}? Ctrl+Z undoes it.`)) onClearAll();
+          }}
+        >
+          Clear all
+        </button>
+      </div>
+      <ul ref={listRef}>
+        {sorted.flatMap((g, i) => {
+          const state = now.has(g.id) ? ' now' : g.id === holding ? ' holding' : '';
+          const item = (
+            <li key={g.id}>
+              <button className={`${g.id === gesture?.id ? 'active' : ''}${g.enabled === false ? ' off' : ''}${state}`} onClick={() => onSelect(g.id)}>
+                <span className={`swatch ${swatch(g)}`} />
+                <span>
+                  {gestureTitle(g)} <span className="muted">{g.type === 'breath' ? `after ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</span>
+                </span>
+                {state && <span className={`tag${state}`}>{state === ' now' ? 'now' : 'holding'}</span>}
+              </button>
+            </li>
+          );
+          return i === markerAt ? [marker, item] : [item];
+        })}
+        {markerAt === sorted.length && marker}
       </ul>
     </section>
   );

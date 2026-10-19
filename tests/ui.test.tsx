@@ -70,6 +70,22 @@ describe('app', () => {
     expect(document.querySelector('.tempo-curve')?.getAttribute('d')?.length).toBeGreaterThan(100);
     expect(document.querySelectorAll('.band').length).toBe(4);
 
+    // The panel marks gestures against the playhead (clicking a note moves it there while paused).
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    const voiceBar2Notes = document.querySelectorAll('g.measure')[1].querySelectorAll('g.staff')[0].querySelectorAll('g.note');
+    await click(voiceBar2Notes[0]); // bar 2, inside the broadening
+    const now = () => [...document.querySelectorAll('.list button.now')].map((b) => b.textContent ?? '');
+    expect(now()).toHaveLength(1);
+    expect(now()[0]).toContain('Broaden');
+    expect(document.querySelector('.playhead-marker')).toBeNull();
+    const lastBar = [...document.querySelectorAll('g.measure')].at(-1)!.querySelectorAll('g.note');
+    await click(lastBar[0]); // the last bar: after every gesture
+    expect(now()).toHaveLength(0);
+    const items = [...document.querySelectorAll('.list li')];
+    expect(items.at(-1)?.classList.contains('playhead-marker')).toBe(true);
+    // Re-select the section for the steps below.
+    await click(button('Broaden · 10%'));
+
     // Put the peak on a note and hold it until a later one.
     await click(button('Peak on a note instead'));
     expect(text()).toContain('where the peak arrives');
@@ -94,5 +110,24 @@ describe('app', () => {
     await undo();
     await undo();
     expect(text()).not.toContain('Broaden · 10%');
+
+    // A Slow down keeps its tempo after it ends: past it, the panel shows it as holding.
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await click(voiceBar1[0]);
+    await click(voiceBar1[1], { shiftKey: true });
+    await click(button('Slow down'));
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await click(voiceBar2Notes[1]);
+    const holding = [...document.querySelectorAll('.list button.holding')].map((b) => b.textContent ?? '');
+    expect(holding).toHaveLength(1);
+    expect(holding[0]).toContain('Slow down');
+
+    // Clear all removes every gesture after confirming, and undo brings them back.
+    const count = document.querySelectorAll('.list li button').length;
+    window.confirm = () => true;
+    await click(button('Clear all'));
+    expect(document.querySelector('.list')).toBeNull();
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    expect(document.querySelectorAll('.list li button').length).toBe(count);
   });
 });
