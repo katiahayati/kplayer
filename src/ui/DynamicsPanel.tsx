@@ -84,6 +84,16 @@ export function DynamicsPanel(p: Props) {
           ))}
         </ul>
       )}
+      {(d?.pedal ?? []).map((span) => (
+        <label key={span.id} className="check pedal" title="Sustain pedal over this stretch">
+          <input
+            type="checkbox"
+            checked={span.enabled !== false}
+            onChange={(e) => p.onChange({ ...d!, pedal: d!.pedal!.map((s) => (s.id === span.id ? { ...s, enabled: e.target.checked } : s)) }, `pedal:${span.id}`)}
+          />
+          Pedal, {PEDAL_MODES[span.mode]}, {anchorLabel(span.from)} – {anchorLabel(span.to)}
+        </label>
+      ))}
       {voices.some((v) => v.lead) && (
         <label className="slider">
           <span>Ahead by</span>
@@ -94,6 +104,8 @@ export function DynamicsPanel(p: Props) {
     </section>
   );
 }
+
+const PEDAL_MODES = { harmony: 'changed with the harmony', beat: 'changed every beat', bar: 'changed every bar', off: 'off' } as const;
 
 /** "Piano, upper staff, long notes, top note, m. 9 – m. 28" */
 function describe(v: VoiceRule, partNames: string[]): string {

@@ -142,6 +142,7 @@ export interface HairpinGesture {
 /** Sustain pedal over a stretch: changed with the harmony, every beat, every bar, or off. */
 export interface PedalSpan {
   id: string;
+  enabled?: boolean;
   from: Anchor;
   to: Anchor;
   mode: 'harmony' | 'beat' | 'bar' | 'off';

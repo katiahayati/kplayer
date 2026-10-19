@@ -66,7 +66,8 @@ if (only || parts) {
 }
 const midiBytes = renderPerformanceMidi(events, map, { parts: doc.parts });
 
-const { left, right } = await createRenderer(rate).render(midiBytes, map.duration + 3);
+const pianoOnly = events.parts.every((p) => p.program < 8);
+const { left, right } = await createRenderer(rate, { pianoOnly }).render(midiBytes, map.duration + 3);
 const total = left.length;
 // Not normalised: renders stay on one scale, so their loudness can be compared.
 let peak = 0;

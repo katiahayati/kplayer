@@ -63,7 +63,7 @@ const input = (dynamics: DynamicsDoc): DynamicsInput => ({
   resolve,
   barStarts: score.index.played.map((m) => m.q0),
 });
-const renderer = createRenderer(32000);
+const renderer = createRenderer(32000, { pianoOnly: part.program < 8 });
 const measure = async (dynamics: DynamicsDoc) => {
   const midi = renderPerformanceMidi(shapeDynamics(input(dynamics)), map, { parts: doc.parts });
   const { left, right } = await renderer.render(midi, map.duration + 2);

@@ -155,10 +155,14 @@ describe('voicing', () => {
 describe('pedal', () => {
   const pedal = (doc: DynamicsDoc) => shape(doc).parts[0].controls.filter((c) => c.number === 64).map((c) => [+c.q.toFixed(2), c.value]);
 
-  it('changes with the harmony: a new bass or new notes', () => {
-    // C major over C, then G over B, then C over C again, each a bar.
+  it('changes with the harmony: a new bass, or a note the beat before did not have', () => {
+    // C major over C (with passing notes F# and E on beats 3 and 4), then G over B, then C over C, a bar each.
     expect(pedal({ voices: [], pedal: [{ id: 'p', from: bar(1), to: bar(4), mode: 'harmony' }] })).toEqual([
       [0.08, 1],
+      [2, 0],
+      [2.08, 1],
+      [3, 0],
+      [3.08, 1],
       [4, 0],
       [4.08, 1],
       [8, 0],

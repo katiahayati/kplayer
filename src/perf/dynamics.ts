@@ -35,8 +35,6 @@ const DEFAULT_LEVEL = MARKING_VELOCITY.mf;
 const LADDER = [18, 32, 49, 64, 72, 88, 101, 113];
 /** How long after a pedal change the pedal goes down again, in quarter notes. */
 const PEDAL_CATCH_Q = 0.08;
-/** Changes of more than this many new pitch classes count as a new harmony. */
-const NEW_HARMONY_PCS = 2;
 
 export interface DynamicsInput {
   events: ScoreEvents;
@@ -154,11 +152,15 @@ function noise(part: number, i: number): number {
   return (((h ^ (h >>> 16)) >>> 0) / 0xffffffff) * 2 - 1;
 }
 
-/** Where to change the pedal in [q0, q1): new bass, or a new harmony, beat by beat. */
+/**
+ * Where to change the pedal in [q0, q1), beat by beat: wherever a beat brings a new bass note or a pitch
+ * class the beat before didn't have. Beats that only repeat the harmony (repeated chords, a held
+ * melody) stay under one pedal; moving figures get a fresh pedal each beat instead of blurring.
+ */
 function harmonyChanges(notes: ScoreNote[], q0: number, q1: number): number[] {
   const changes: number[] = [];
-  let prevBass: number | undefined;
-  let prevPcs = new Set<number>();
+  let prev: Set<number> | undefined;
+  let prevBass = -1;
   for (let b = Math.floor(q0 + 1e-9); b < q1 - 1e-9; b++) {
     const lo = Math.max(b, q0);
     const hi = Math.min(b + 1, q1);
@@ -166,11 +168,10 @@ function harmonyChanges(notes: ScoreNote[], q0: number, q1: number): number[] {
     if (!starting.length) continue;
     const sounding = notes.filter((n) => n.qOn < hi - 1e-6 && n.qOff > lo + 1e-6);
     const bass = Math.min(...sounding.map((n) => n.midi)) % 12;
-    const pcs = new Set(sounding.map((n) => n.midi % 12));
-    const fresh = [...new Set(starting.map((n) => n.midi % 12))].filter((p) => !prevPcs.has(p)).length;
-    if (prevBass !== undefined && (bass !== prevBass || fresh >= NEW_HARMONY_PCS)) changes.push(Math.min(...starting.map((n) => n.qOn)));
+    const fresh = starting.some((n) => !prev?.has(n.midi % 12));
+    if (prev && (bass !== prevBass || fresh)) changes.push(Math.min(...starting.map((n) => n.qOn)));
+    prev = new Set(sounding.map((n) => n.midi % 12));
     prevBass = bass;
-    prevPcs = pcs;
   }
   return changes;
 }
@@ -178,7 +179,7 @@ function harmonyChanges(notes: ScoreNote[], q0: number, q1: number): number[] {
 function pedalEvents(part: ScorePart, input: DynamicsInput): ScoreControl[] {
   const out: ScoreControl[] = [];
   for (const span of input.doc?.pedal ?? []) {
-    if (span.part !== undefined && span.part !== part.index) continue;
+    if (span.enabled === false || (span.part !== undefined && span.part !== part.index)) continue;
     for (const [q0, q1] of pairSpans(input.resolve(span.from), input.resolve(span.to))) {
       if (q1 <= q0) continue;
       if (span.mode === 'off') {

@@ -13,9 +13,13 @@ export interface Renderer {
   render(midi: Uint8Array, seconds: number): Promise<{ left: Float32Array; right: Float32Array }>;
 }
 
-/** Loads the banks once; each render starts a fresh synth. */
-export function createRenderer(rate = 44100, dir = 'public/soundfonts'): Renderer {
-  const banks: BasicSoundBank[] = BANKS.map((f) => path.join(dir, f))
+/**
+ * Loads the banks once; each render starts a fresh synth. With `pianoOnly`, just the piano bank, which
+ * saves memory (the General MIDI bank decodes to far more than its file size).
+ */
+export function createRenderer(rate = 44100, { pianoOnly = false, dir = 'public/soundfonts' } = {}): Renderer {
+  const banks: BasicSoundBank[] = (pianoOnly ? BANKS.slice(0, 1) : BANKS)
+    .map((f) => path.join(dir, f))
     .filter((f) => fs.existsSync(f))
     .map((f) => {
       const b = fs.readFileSync(f);

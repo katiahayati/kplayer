@@ -680,3 +680,9 @@ button.small {
 .voices .slider {
   margin-left: 22px;
 }
+
+.dynamics .pedal {
+  display: flex;
+  margin: 8px 0 2px;
+  font-size: 13px;
+}
