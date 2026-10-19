@@ -120,7 +120,44 @@ describe('app', () => {
     await click(voiceBar2Notes[1]);
     const holding = [...document.querySelectorAll('.list button.holding')].map((b) => b.textContent ?? '');
     expect(holding).toHaveLength(1);
-    expect(holding[0]).toContain('Slow down');
+    expect(holding[0]).toContain('Slow down to 85%');
+
+    // A Speed up after it starts from that 85%, and shows the tempi (the fixture is ♩ = 72).
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await click(voiceBar2Notes[0]);
+    await click(voiceBar2Notes[1], { shiftKey: true });
+    await click(button('Speed up'));
+    expect(text()).toContain('Speed up to 98%');
+    expect(text()).toContain('from 85%: ♩ = 61 → 71');
+
+    // The Tempo slider changes the tempi, not the percentages.
+    const slide = (el: HTMLInputElement, v: number) =>
+      act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(el, String(v));
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    const tempoSlider = document.querySelector<HTMLInputElement>('.tempo input[type=range]')!;
+    await slide(tempoSlider, 50);
+    expect(text()).toContain('from 85%: ♩ = 31 → 35');
+    expect(text()).toContain('Speed up to 98%');
+    await slide(tempoSlider, 100);
+    expect(text()).toContain('from 85%: ♩ = 61 → 71');
+
+    // Deleting the Slow down leaves the other section arriving at 98%: it now slows down to it from 100%.
+    await click(button('Slow down to 85%'));
+    await click(button('Delete'));
+    expect(text()).not.toContain('to 85%');
+    await click(button('Slow down to 98%'));
+    expect(text()).toContain('from 100%: ♩ = 72 → 71');
+    // Its own slider changes only it.
+    await slide(document.querySelector<HTMLInputElement>('.inspector .slider input[type=range]')!, 120);
+    expect(text()).toContain('Speed up to 120%');
+    expect(text()).toContain('from 100%: ♩ = 72 → 86');
+    // Undo brings back the old target, then the deleted Slow down, and the other section is as it was.
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    expect(text()).toContain('Slow down to 85%');
+    expect(text()).toContain('Speed up to 98%');
 
     // Clear all removes every gesture after confirming, and undo brings them back.
     const count = document.querySelectorAll('.list li button').length;
