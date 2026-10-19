@@ -298,6 +298,11 @@ kbd {
   color: var(--accent);
 }
 
+.score-pages.picking,
+.score-pages.picking g.note {
+  cursor: crosshair;
+}
+
 .breath-marker {
   position: absolute;
   transform: translate(-50%, -100%);
@@ -381,6 +386,35 @@ kbd {
 .slider output {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+.pick-row {
+  display: grid;
+  grid-template-columns: 82px auto auto;
+  justify-content: start;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 2px 1px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--select) 16%, transparent);
+}
+
+.chip button {
+  border: none;
+  background: none;
+  padding: 0 6px;
+}
+
+.hint-pick {
+  color: var(--select);
+  font-weight: 500;
 }
 
 .check {
@@ -513,6 +547,11 @@ kbd {
   justify-content: center;
   text-align: center;
   padding: 24px;
+}
+
+.empty .credits {
+  margin-top: 32px;
+  font-size: 12px;
 }
 
 .empty h1 {

@@ -74,7 +74,7 @@ describe('ramps and a tempo', () => {
 
 describe('phrase shapes', () => {
   it('broadens to the peak and returns', () => {
-    const map = flat(80, 32, [{ kind: 'shape', id: 's', start: 8, peak: 10.6, end: 12, ratio: 0.9 }]);
+    const map = flat(80, 32, [{ kind: 'shape', id: 's', start: 8, peak: 10.6, hold: 10.6, end: 12, ratio: 0.9 }]);
     expect(map.bpmAt(8)).toBeCloseTo(80, 9);
     expect(map.bpmAt(10.6)).toBeCloseTo(72, 9);
     expect(map.bpmAt(12)).toBeCloseTo(80, 9);
@@ -87,7 +87,7 @@ describe('phrase shapes', () => {
 
   it('overlapping gestures multiply (add in log space)', () => {
     const map = flat(100, 32, [
-      { kind: 'shape', id: 's1', start: 4, peak: 8, end: 12, ratio: 1.1 },
+      { kind: 'shape', id: 's1', start: 4, peak: 8, hold: 8, end: 12, ratio: 1.1 },
       { kind: 'ramp', id: 'r', q0: 2, q1: 6, ratio: 0.8 },
     ]);
     expect(map.bpmAt(8)).toBeCloseTo(100 * 1.1 * 0.8, 9);
@@ -95,12 +95,26 @@ describe('phrase shapes', () => {
 
   it('a phrase peaking at its end flows into the next without a step', () => {
     const map = flat(90, 32, [
-      { kind: 'shape', id: 's1', start: 4, peak: 12, end: 13, ratio: 0.88 },
-      { kind: 'shape', id: 's2', start: 12, peak: 15, end: 16, ratio: 1.08 },
+      { kind: 'shape', id: 's1', start: 4, peak: 12, hold: 12, end: 13, ratio: 0.88 },
+      { kind: 'shape', id: 's2', start: 12, peak: 15, hold: 15, end: 16, ratio: 1.08 },
     ]);
     const { maxStep, maxCurve } = roughness(map, 3, 17);
     expect(maxStep).toBeLessThan(0.05);
     expect(maxCurve).toBeLessThan(2e-3);
+  });
+});
+
+describe('shapes with a held peak', () => {
+  it('arrives at the peak, holds it level, then eases back', () => {
+    const map = flat(60, 40, [{ kind: 'shape', id: 's', start: 4, peak: 12, hold: 17.5, end: 24, ratio: 1.12 }]);
+    expect(map.bpmAt(4)).toBeCloseTo(60, 9);
+    for (const q of [12, 13, 15, 17.5]) expect(map.bpmAt(q)).toBeCloseTo(67.2, 9);
+    expect(map.bpmAt(20)).toBeGreaterThan(60);
+    expect(map.bpmAt(20)).toBeLessThan(67.2);
+    expect(map.bpmAt(24)).toBeCloseTo(60, 9);
+    const { maxStep, maxCurve } = roughness(map, 3, 25);
+    expect(maxStep).toBeLessThan(0.05);
+    expect(maxCurve).toBeLessThan(1e-3);
   });
 });
 
@@ -147,7 +161,7 @@ describe('breaths', () => {
   });
 
   it('adds exactly its own time inside a broadening and next to another breath', () => {
-    const shape: TimingGesture = { kind: 'shape', id: 's', start: 8, peak: 14, end: 18, ratio: 0.85 };
+    const shape: TimingGesture = { kind: 'shape', id: 's', start: 8, peak: 14, hold: 14, end: 18, ratio: 0.85 };
     const shaped = flat(66, 40, [shape]);
     const map = flat(66, 40, [shape, breath(14, 0.35), breath(15, 0.2)]);
     expect(map.duration - shaped.duration).toBeCloseTo(0.55, 6);

@@ -23,8 +23,8 @@ export type TimingGesture =
   | { kind: 'ramp'; id: string; q0: number; q1: number; ratio: number }
   /** Smoothly cancels whatever ramp level is in effect, arriving at q1. */
   | { kind: 'aTempo'; id: string; q0: number; q1: number }
-  /** Eases to `ratio` × tempo at `peak`, then back (broaden / push forward). */
-  | { kind: 'shape'; id: string; start: number; peak: number; end: number; ratio: number }
+  /** Eases to `ratio` × tempo at `peak`, holds it until `hold`, then eases back by `end` (broaden / push forward). */
+  | { kind: 'shape'; id: string; start: number; peak: number; hold: number; end: number; ratio: number }
   /**
    * Holds the note before a breath at q `extraSec` longer: the span [start, q]
    * (from that note's onset to the breath) is slowed evenly; nothing else is.
@@ -118,7 +118,7 @@ export function buildTimeMap(opts: TimeMapOptions): TimeMap {
   for (const g of gestures) {
     if (g.kind !== 'shape') continue;
     const level = Math.log(g.ratio);
-    terms.push({ lo: g.start, hi: g.end, tail: 0, at: (q) => level * bumpShape(q, g.start, g.peak, g.end) });
+    terms.push({ lo: g.start, hi: g.end, tail: 0, at: (q) => level * bumpShape(q, g.start, g.peak, g.hold, g.end) });
   }
 
   // Breaths last: each is solved against everything already on the curve

@@ -15,9 +15,10 @@ export function rampShape(q: number, q0: number, q1: number): number {
   return smootherstep((q - q0) / (q1 - q0));
 }
 
-/** Rises 0 → 1 over [start, peak], falls 1 → 0 over [peak, end], 0 elsewhere. */
-export function bumpShape(q: number, start: number, peak: number, end: number): number {
+/** Rises 0 → 1 over [start, peak], holds 1 until `hold`, falls 1 → 0 over [hold, end], 0 elsewhere. */
+export function bumpShape(q: number, start: number, peak: number, hold: number, end: number): number {
   if (q <= start || q >= end) return 0;
   if (q <= peak) return peak > start ? smootherstep((q - start) / (peak - start)) : 1;
-  return end > peak ? smootherstep((end - q) / (end - peak)) : 1;
+  if (q <= hold) return 1;
+  return end > hold ? smootherstep((end - q) / (end - hold)) : 1;
 }

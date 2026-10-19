@@ -70,8 +70,29 @@ describe('app', () => {
     expect(document.querySelector('.tempo-curve')?.getAttribute('d')?.length).toBeGreaterThan(100);
     expect(document.querySelectorAll('.band').length).toBe(4);
 
-    // Undo removes the section.
-    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    // Put the peak on a note and hold it until a later one.
+    await click(button('Peak on a note instead'));
+    expect(text()).toContain('where the peak arrives');
+    expect(document.querySelector('.score-pages.picking')).not.toBeNull();
+    await click(voiceBar1[2]); // E5 on beat 3 of bar 1
+    expect(document.querySelector('.pick-row .chip')?.textContent).toContain('m. 1, ♩3');
+    const voiceBar2 = document.querySelectorAll('g.measure')[1].querySelectorAll('g.staff')[0].querySelectorAll('g.note');
+    await click(button('Pick note'));
+    await click(voiceBar2[1]); // D5 on beat 2 of bar 2
+    expect([...document.querySelectorAll('.pick-row .chip')].map((c) => c.textContent)).toEqual(['m. 1, ♩3×', 'm. 2, ♩2×']);
+    expect(text()).toContain('holds it until the hold note');
+    // Esc while picking cancels the pick but keeps the section selected.
+    await click(button('Change'));
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    expect(document.querySelector('.score-pages.picking')).toBeNull();
+    expect(text()).toContain('Peak on');
+
+    // Undo steps back through the hold, the peak, then the section itself.
+    const undo = () => act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    await undo();
+    expect(document.querySelectorAll('.pick-row .chip').length).toBe(1);
+    await undo();
+    await undo();
     expect(text()).not.toContain('Broaden · 10%');
   });
 });

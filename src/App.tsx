@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Player } from './audio/player';
+import { Player, type SoundBankSource } from './audio/player';
 import { anchorFor, loopAround, nearestSpan, noteBefore, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
 import { BREATH_PRESETS, DEFAULT_BREATH_PRESET, SECTION_DEFAULTS } from './perf/presets';
@@ -9,12 +9,15 @@ import { emptyDoc, type Anchor, type Gesture, type PartSetting, type Performance
 import { ScoreView, type BreathMarker } from './score/ScoreView';
 import { loadScore, type LoadedScore } from './score/verovio';
 import { downloadBlob, loadSaved, parseDoc, save } from './storage/persist';
-import { Inspector, type SectionKind } from './ui/Inspector';
+import { Inspector, type PickField, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
 import { Transport } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
 
-const SOUNDFONT_URL = `${import.meta.env.BASE_URL}soundfonts/MuseScore_General.sf3`;
+const SOUND_BANKS: SoundBankSource[] = [
+  { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/YDP-GrandPiano.sf2`, optional: true },
+  { id: 'general', url: `${import.meta.env.BASE_URL}soundfonts/MuseScore_General.sf3` },
+];
 const DEMO_URL = `${import.meta.env.BASE_URL}demo/song.musicxml`;
 
 type Selection = { kind: 'none' } | { kind: 'notes'; anchorId: string; focusId: string } | { kind: 'gesture'; id: string };
@@ -28,6 +31,8 @@ export default function App() {
   const [expressive, setExpressive] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: 'none' });
   const [loopGestureId, setLoopGestureId] = useState<string>();
+  /** A shape waiting for a note click to set its peak or hold note. */
+  const [picking, setPicking] = useState<{ gestureId: string; field: PickField }>();
   const [playQ, setPlayQ] = useState(0);
   const [playing, setPlaying] = useState(false);
 
@@ -121,7 +126,7 @@ export default function App() {
   const ensurePlayer = useCallback(async (): Promise<Player | undefined> => {
     if (player.current) return player.current;
     try {
-      playerLoading.current ??= Player.create(SOUNDFONT_URL, setStatus);
+      playerLoading.current ??= Player.create(SOUND_BANKS, setStatus);
       player.current = await playerLoading.current;
       return player.current;
     } catch (e) {
@@ -247,6 +252,7 @@ export default function App() {
   }, [score, selection]);
 
   const selectedGesture = selection.kind === 'gesture' ? doc.gestures.find((g) => g.id === selection.id) : undefined;
+  const pickField = picking && picking.gestureId === selectedGesture?.id ? picking.field : undefined;
 
   const { selectedIds, rangeIds } = useMemo(() => {
     const sel = new Set<string>();
@@ -280,12 +286,22 @@ export default function App() {
   const onNoteClick = useCallback(
     (id: string, { shift, double }: { shift: boolean; double: boolean }) => {
       if (!score) return;
+      if (pickField && selectedGesture) {
+        // Anchor to the note's onset, in its own measure.
+        const first = score.index.spans.get(id)?.[0];
+        if (first) {
+          const at = anchorFor(score.index, score.index.measureOf.get(id) ?? 0, first.qOn);
+          updateGesture(selectedGesture.id, { [pickField]: at }, `${selectedGesture.id}:${pickField}`);
+        }
+        setPicking(undefined);
+        return;
+      }
       const span = nearestSpan(score.index.spans.get(id), playQRef.current);
       if (double && span) return seekTo(span.qOn, true);
       setSelection((s) => (shift && s.kind === 'notes' ? { ...s, focusId: id } : { kind: 'notes', anchorId: id, focusId: id }));
       if (!shift && span && !player.current?.playing) seekTo(span.qOn);
     },
-    [score, seekTo],
+    [score, seekTo, pickField, selectedGesture, updateGesture],
   );
 
   // ---- Actions ---------------------------------------------------------------
@@ -370,7 +386,8 @@ export default function App() {
       e.preventDefault();
       deleteGesture(selection.id);
     } else if (e.key === 'Escape') {
-      setSelection({ kind: 'none' });
+      if (pickField) setPicking(undefined);
+      else setSelection({ kind: 'none' });
     }
   };
   useEffect(() => {
@@ -437,6 +454,7 @@ export default function App() {
               selectedIds={selectedIds}
               rangeIds={rangeIds}
               breaths={breathMarkers}
+              picking={!!pickField}
               onNoteClick={onNoteClick}
               onBreathClick={(id) => setSelection({ kind: 'gesture', id })}
             />
@@ -454,6 +472,8 @@ export default function App() {
               onChange={updateGesture}
               onDelete={deleteGesture}
               onToggleLoop={toggleLoop}
+              picking={pickField}
+              onPick={(field) => setPicking(field && selectedGesture ? { gestureId: selectedGesture.id, field } : undefined)}
               onSelect={(id) => setSelection({ kind: 'gesture', id })}
             />
           </main>
@@ -480,6 +500,9 @@ export default function App() {
             <button onClick={openDemo}>Try the demo song</button>
           </p>
           {status && <p className="muted">{status}</p>}
+          <p className="credits muted">
+            Piano: YDP Grand Piano (FreePats, CC-BY 3.0). Other instruments: MuseScore General (MIT).
+          </p>
         </div>
       )}
     </div>

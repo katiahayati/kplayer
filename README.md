@@ -8,7 +8,7 @@ never abrupt steps. The score file is never modified; your phrasing is saved sep
 
 ```sh
 npx -y npm@11 install        # the system npm 10.8.2 hangs on these packages
-npm run fetch-soundfont      # MuseScore General SoundFont (~40 MB) → public/soundfonts/
+npm run fetch-soundfont      # sound banks (~80 MB download) → public/soundfonts/
 npm run dev                  # then open http://localhost:5173 in your browser
 ```
 
@@ -35,6 +35,9 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 - **Slow down** / **Speed up** hold their new tempo until an **A tempo**. **Broaden** and **Push forward** return by
   the end of the section. With the peak at 100% plus some "settle after" time, the next phrase starts from the
   broadened tempo and gathers itself.
+- For a Broaden or Push forward you can pick the exact note its **peak** arrives on, and a note to **hold** the peak
+  tempo **until**. For example: start at the rest, peak on a long held note, hold it until the next syllable, then
+  ease back to tempo by the end of the phrase.
 - Your work autosaves in the browser for each score. **Export JSON** saves it as a file you can import later.
   **Export MIDI** writes the timed performance for use elsewhere.
 
@@ -52,6 +55,16 @@ fixed-tempo MIDI file and played by SpessaSynth. Verovio renders the score and g
 
 Code map: `src/perf/` holds the timing engine (pure TypeScript, tested), `src/score/` the Verovio loading and score
 view, `src/audio/` the synth wrapper, and `src/ui/` the panels. See `NOTES.md` for findings about the libraries.
+
+## Sounds
+
+- Piano: [YDP Grand Piano](https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html) by FreePats, built from Zenph
+  Studios' Yamaha Disklavier Pro samples, [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+- Everything else: [MuseScore General](https://musescore.org/en/handbook/3/soundfonts-and-sfz-files) by S. Christian
+  Collins, MIT license.
+
+The piano bank is layered over MuseScore General and replaces only its acoustic grand. If the piano file is missing,
+playback falls back to MuseScore General's piano.
 
 ## Tests
 

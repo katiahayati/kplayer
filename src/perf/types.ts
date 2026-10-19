@@ -55,8 +55,12 @@ export interface ShapeGesture extends GestureBase {
   to: Anchor;
   /** Fractional tempo change at the peak, e.g. 0.10 = 10%. */
   amount: number;
-  /** Where the peak falls within the section, 0..1. */
+  /** Where the peak falls within the section, 0..1. Used unless `peakAt` is set. */
   peak: number;
+  /** The note the peak arrives on (its onset). */
+  peakAt?: Anchor;
+  /** Hold the peak tempo until this note (its onset), then ease back. */
+  holdUntil?: Anchor;
   /** Quarter notes after `to` over which the tempo returns (used when peak is at the very end). */
   releaseQ: number;
 }

@@ -27,6 +27,8 @@ export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, no
       continue;
     }
 
+    const peaks = g.type === 'shape' && g.peakAt ? resolve(g.peakAt) : [];
+    const holds = g.type === 'shape' && g.holdUntil ? resolve(g.holdUntil) : [];
     for (const [q0, end] of pairSpans(resolve(g.from), resolve(g.to))) {
       const q1 = Math.max(end, q0 + MIN_SECTION_EASE_Q);
       if (g.type === 'ramp') {
@@ -36,13 +38,17 @@ export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, no
         out.push({ kind: 'aTempo', id: g.id, q0, q1 });
       } else {
         const amount = clamp(g.amount, 0, g.gesture === 'broaden' ? 0.6 : 1);
-        const peak = Math.max(q0 + clamp(g.peak, 0, 1) * (q1 - q0), q0 + MIN_SECTION_EASE_Q);
-        const fallEnd = Math.max(q1 + Math.max(g.releaseQ, 0), peak + MIN_SECTION_EASE_Q);
+        // A picked note (this pass's copy of it, if it's inside the section) wins over the percentage.
+        const picked = peaks.find((p) => p >= q0 && p <= q1);
+        const peak = clamp(picked ?? q0 + clamp(g.peak, 0, 1) * (q1 - q0), q0 + MIN_SECTION_EASE_Q, Math.max(q1, q0 + MIN_SECTION_EASE_Q));
+        const hold = Math.max(holds.find((h) => h >= peak && h <= q1 + Math.max(g.releaseQ, 0)) ?? peak, peak);
+        const fallEnd = Math.max(q1 + Math.max(g.releaseQ, 0), hold + MIN_SECTION_EASE_Q);
         out.push({
           kind: 'shape',
           id: g.id,
           start: q0,
           peak,
+          hold,
           end: fallEnd,
           ratio: g.gesture === 'broaden' ? 1 - amount : 1 + amount,
         });

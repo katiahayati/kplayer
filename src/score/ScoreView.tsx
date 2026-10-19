@@ -19,11 +19,13 @@ interface Props {
   /** Base IDs shown as inside the selected range or gesture. */
   rangeIds: ReadonlySet<string>;
   breaths: BreathMarker[];
+  /** Waiting for a click on a note (e.g. to set a shape's peak). */
+  picking?: boolean;
   onNoteClick: (id: string, opts: { shift: boolean; double: boolean }) => void;
   onBreathClick: (gestureId: string) => void;
 }
 
-export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breaths, onNoteClick, onBreathClick }: Props) {
+export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breaths, picking, onNoteClick, onBreathClick }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const elements = useRef(new Map<string, Element | null>());
@@ -146,7 +148,7 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
 
   return (
     <div className="score-scroll" ref={scrollRef}>
-      <div className="score-pages" ref={pagesRef} onClick={(e) => handleClick(e, false)} onDoubleClick={(e) => handleClick(e, true)}>
+      <div className={`score-pages${picking ? ' picking' : ''}`} ref={pagesRef} onClick={(e) => handleClick(e, false)} onDoubleClick={(e) => handleClick(e, true)}>
         <Pages pages={score.pages} />
         {markerPos.map(({ marker, left, top }) => (
           <button

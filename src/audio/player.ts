@@ -5,6 +5,13 @@
 import { Sequencer, WorkletSynthesizer } from 'spessasynth_lib';
 import processorUrl from 'spessasynth_lib/dist/spessasynth_processor.min.js?url';
 
+export interface SoundBankSource {
+  id: string;
+  url: string;
+  /** Skip it (rather than fail) when the file is missing. */
+  optional?: boolean;
+}
+
 export interface LoadOptions {
   /** Performance time the file's tick 0 corresponds to (non-zero for loop windows). */
   offset?: number;
@@ -22,15 +29,31 @@ export class Player {
     private readonly seq: Sequencer,
   ) {}
 
-  static async create(soundFontUrl: string, onProgress?: (msg: string) => void): Promise<Player> {
+  /**
+   * Starts the synth with the given sound banks. Earlier banks take priority:
+   * a piano bank listed first replaces the general bank's piano only.
+   */
+  static async create(banks: SoundBankSource[], onProgress?: (msg: string) => void): Promise<Player> {
     const ctx = new AudioContext();
     onProgress?.('Starting audio…');
     await ctx.audioWorklet.addModule(processorUrl);
     const synth = new WorkletSynthesizer(ctx);
     synth.connect(ctx.destination);
-    onProgress?.('Loading sounds…');
-    const font = await (await fetch(soundFontUrl)).arrayBuffer();
-    await synth.soundBankManager.addSoundBank(font, 'main');
+    const loaded: string[] = [];
+    for (const bank of banks) {
+      onProgress?.(`Loading sounds (${bank.id})…`);
+      try {
+        const res = await fetch(bank.url);
+        // A missing file in dev comes back as the app's HTML page.
+        if (!res.ok || res.headers.get('content-type')?.includes('text/html')) throw new Error(`${bank.url} not found`);
+        await synth.soundBankManager.addSoundBank(await res.arrayBuffer(), bank.id);
+        loaded.push(bank.id);
+      } catch (e) {
+        if (!bank.optional) throw e;
+        console.warn(`Skipping sound bank ${bank.id}:`, e);
+      }
+    }
+    synth.soundBankManager.priorityOrder = loaded;
     await synth.isReady;
     const seq = new Sequencer(synth, { skipToFirstNoteOn: false });
     return new Player(ctx, seq);

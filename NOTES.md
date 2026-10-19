@@ -34,6 +34,11 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
   first note-on to the last voice event. **CC2, CC4, CC111 and CC116–119 are also read as loop points**, so kplayer
   never copies them into the performance MIDI.
 - Seeking while paused updates the paused clock only once the worklet answers with `timeChange`.
+- **Several sound banks**: `soundBankManager.priorityOrder` lists bank IDs, first wins per preset. kplayer loads the
+  YDP piano (one preset, 0:0 "Grand Piano", 121 samples at 44.1 kHz, 118 MB) ahead of MuseScore General.
+- **Memory**: samples are decoded to 32-bit floats as they're played, so the working set approaches 2× the 16-bit
+  sample data. The Salamander Grand SF2 (1.27 GB, 48 kHz/24-bit, 16 layers) is too big for this; YDP peaks around
+  240 MB. Don't decode big banks whole in Node either: on this WSL (~5.8 GB) it ran out of memory.
 
 ## Tooling
 

@@ -4,6 +4,8 @@ import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
 
 export type SectionKind = 'slower' | 'faster' | 'broaden' | 'push' | 'aTempo';
+/** A note being picked for a shape: where its peak arrives, or where its return begins. */
+export type PickField = 'peakAt' | 'holdUntil';
 
 interface Props {
   index: ScoreIndex;
@@ -21,6 +23,8 @@ interface Props {
   onChange: (id: string, patch: Partial<Gesture>, key: string) => void;
   onDelete: (id: string) => void;
   onToggleLoop: () => void;
+  picking?: PickField;
+  onPick: (field?: PickField) => void;
   onSelect: (id: string) => void;
 }
 
@@ -74,7 +78,7 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
   );
 }
 
-function GestureEditor({ gesture: g, breathResults, loopOn, onChange, onDelete, onToggleLoop }: Props & { gesture: Gesture }) {
+function GestureEditor({ gesture: g, breathResults, loopOn, onChange, onDelete, onToggleLoop, picking, onPick }: Props & { gesture: Gesture }) {
   const set = (patch: Partial<Gesture>, field: string) => onChange(g.id, patch, `${g.id}:${field}`);
   return (
     <section className="panel">
@@ -83,7 +87,7 @@ function GestureEditor({ gesture: g, breathResults, loopOn, onChange, onDelete, 
 
       {g.type === 'breath' && <BreathFields g={g} result={breathResults.find((r) => r.id === g.id)} set={set} />}
       {g.type === 'ramp' && <RampFields g={g} set={set} />}
-      {g.type === 'shape' && <ShapeFields g={g} set={set} />}
+      {g.type === 'shape' && <ShapeFields g={g} set={set} picking={picking} onPick={onPick} />}
       {g.type === 'aTempo' && <p className="muted">Eases back to the written tempo over this section.</p>}
 
       <div className="actions">
@@ -147,7 +151,20 @@ function RampFields({ g, set }: { g: RampGesture; set: Setter }) {
   );
 }
 
-function ShapeFields({ g, set }: { g: ShapeGesture; set: Setter }) {
+function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter; picking?: PickField; onPick: (f?: PickField) => void }) {
+  const pickButton = (field: PickField, label: string) => (
+    <button className={picking === field ? 'active' : ''} onClick={() => onPick(picking === field ? undefined : field)}>
+      {picking === field ? 'Click a note…' : label}
+    </button>
+  );
+  const picked = (field: PickField, a: Anchor) => (
+    <span className="chip">
+      {anchorLabel(a)}
+      <button onClick={() => set({ [field]: undefined }, field)} title="Clear">
+        ×
+      </button>
+    </span>
+  );
   return (
     <>
       <div className="presets">
@@ -159,9 +176,37 @@ function ShapeFields({ g, set }: { g: ShapeGesture; set: Setter }) {
         </button>
       </div>
       <Slider label="Amount" value={Math.round(g.amount * 100)} min={1} max={40} step={1} unit="%" onChange={(v) => set({ amount: v / 100 }, 'amount')} />
-      <Slider label="Peak" value={Math.round(g.peak * 100)} min={20} max={100} step={5} unit="%" onChange={(v) => set({ peak: v / 100 }, 'peak')} />
+      {g.peakAt ? (
+        <div className="pick-row">
+          <span>Peak on</span>
+          {picked('peakAt', g.peakAt)}
+          {pickButton('peakAt', 'Change')}
+        </div>
+      ) : (
+        <>
+          <Slider label="Peak" value={Math.round(g.peak * 100)} min={20} max={100} step={5} unit="%" onChange={(v) => set({ peak: v / 100 }, 'peak')} />
+          <div className="pick-row">
+            <span />
+            {pickButton('peakAt', 'Peak on a note instead')}
+          </div>
+        </>
+      )}
+      <div className="pick-row">
+        <span>Hold until</span>
+        {g.holdUntil ? picked('holdUntil', g.holdUntil) : <span className="muted">the peak</span>}
+        {pickButton('holdUntil', g.holdUntil ? 'Change' : 'Pick note')}
+      </div>
+      {picking && (
+        <p className="hint-pick">
+          Click the note {picking === 'peakAt' ? 'where the peak arrives' : 'where the return to tempo begins'}. <kbd>Esc</kbd> cancels.
+        </p>
+      )}
       <Slider label="Settle after" value={g.releaseQ} min={0} max={4} step={0.25} unit=" ♩" onChange={(v) => set({ releaseQ: v }, 'releaseQ')} />
-      <p className="muted">Returns to the surrounding tempo by the end{g.releaseQ ? ', plus the settle time' : ''}.</p>
+      <p className="muted">
+        {g.gesture === 'push' ? 'Gathers momentum' : 'Opens up'} toward the peak
+        {g.holdUntil ? ', holds it until the hold note,' : ','} then returns to the surrounding tempo by the end
+        {g.releaseQ ? ', plus the settle time' : ''}.
+      </p>
     </>
   );
 }
