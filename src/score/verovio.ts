@@ -6,6 +6,7 @@ import type { VerovioToolkit } from 'verovio/esm';
 import { buildScoreIndex, type ScoreIndex, type Span, type TimemapEntry } from '../perf/anchors';
 import { parseScoreMidi, type ScoreEvents } from '../perf/render';
 import { findBreathMarks, staffOfElements, type WrittenBreath } from './breathMarks';
+import { expandTremolos, findTremolos } from './tremolos';
 
 export interface RenderedScore {
   pages: string[];
@@ -72,13 +73,18 @@ export function renderLoaded(tk: VerovioToolkit): RenderedScore {
   const pages: string[] = [];
   for (let p = 1; p <= tk.getPageCount(); p++) pages.push(tk.renderToSVG(p));
   const timemap = tk.renderToTimemap({ includeMeasures: true, includeRests: true }) as TimemapEntry[];
-  const events = parseScoreMidi(base64ToBytes(tk.renderToMIDI()));
+  const midiEvents = parseScoreMidi(base64ToBytes(tk.renderToMIDI()));
   const attrs = new Map<string, Record<string, string>>();
   const attrOf = (id: string) => {
     if (!attrs.has(id)) attrs.set(id, tk.getElementAttr(id));
     return attrs.get(id)!;
   };
-  const index = buildScoreIndex(timemap, (id) => attrOf(id).n ?? '', events.endQ);
+  const index = buildScoreIndex(timemap, (id) => attrOf(id).n ?? '', midiEvents.endQ);
+  // Verovio's MIDI drops fingered tremolos; put them back.
+  const tremolos = findTremolos(tk.getMEI());
+  const events = tremolos.length
+    ? expandTremolos(midiEvents, tremolos, (id) => tk.getMIDIValuesForElement(id).pitch, (id) => index.spans.get(id) ?? [])
+    : midiEvents;
 
   const docs = pages.map((p) => new DOMParser().parseFromString(p, 'image/svg+xml'));
   const staffOf = staffOfElements(docs, attrOf);

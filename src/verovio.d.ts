@@ -19,5 +19,7 @@ declare module 'verovio/esm' {
     getPageWithElement(xmlId: string): number;
     getLog(): string;
     getMEI(options?: Record<string, unknown>): string;
+    /** Requires renderToMIDI() first. */
+    getMIDIValuesForElement(xmlId: string): { pitch?: number; time?: number; duration?: number };
   }
 }

@@ -168,9 +168,11 @@ export default function App() {
       if (p && m) {
         p.seek(m.T(q));
         if (play && !p.playing) p.play();
-      } else if (play) {
-        void togglePlay();
+        return;
       }
+      // No player yet (nothing has played): the first Play starts here.
+      pendingQ.current = q;
+      if (play) void togglePlay();
     },
     [loop, togglePlay],
   );
