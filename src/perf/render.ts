@@ -21,7 +21,7 @@ export interface ScoreNote {
   layer?: number;
   /** One of the rapid alternating notes a fingered tremolo is played as. */
   tremolo?: boolean;
-  /** Sound this many seconds ahead of the beat (a melody brought out). */
+  /** Sound this many seconds ahead of the beat (a melody brought out); negative is behind. */
   leadSec?: number;
   /** The performance voice (VoiceRule id) that set its level, if any. */
   voice?: string;

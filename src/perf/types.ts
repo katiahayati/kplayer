@@ -116,6 +116,8 @@ export interface VoiceRule {
   lead?: boolean;
   /** Random variation of each note's level, ± decibels, so repeated figures shimmer instead of ticking. */
   varyDb?: number;
+  /** Random variation of each note's timing, ± milliseconds: an unmeasured tremolo isn't metronomic. */
+  jitterMs?: number;
 }
 
 /** A dynamic the score doesn't write (taken from the full score, say). */

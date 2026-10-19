@@ -140,6 +140,14 @@ describe('voicing', () => {
     for (const v of a) expect(Math.abs(40 * Math.log10(v / 49))).toBeLessThanOrEqual(3 + 0.4);
   });
 
+  it("jitters a voice's timing a little, the same way every time", () => {
+    const doc: DynamicsDoc = { voices: [{ id: 'v', name: 'Tremolo', select: { layer: [2] }, gainDb: 0, jitterMs: 8 }] };
+    const leads = shape(doc).parts[0].notes.filter((n) => n.layer === 2).map((n) => n.leadSec ?? 0);
+    expect(leads).toEqual(shape(doc).parts[0].notes.filter((n) => n.layer === 2).map((n) => n.leadSec ?? 0));
+    expect(new Set(leads).size).toBeGreaterThan(1);
+    for (const l of leads) expect(Math.abs(l)).toBeLessThanOrEqual(0.008);
+  });
+
   it('a leading voice sounds ahead of the others', () => {
     const shaped = shape({ voices: [{ id: 'mel', name: 'Melody', select: { layer: [1] }, gainDb: 0, lead: true }], leadMs: 25 });
     const map = buildTimeMap({ tempos: [{ q: 0, bpm: 60 }], endQ: score.index.endQ });

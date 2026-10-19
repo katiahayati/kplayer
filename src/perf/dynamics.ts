@@ -158,19 +158,31 @@ function noise(part: number, i: number): number {
  * melody) stay under one pedal; moving figures get a fresh pedal each beat instead of blurring.
  */
 function harmonyChanges(notes: ScoreNote[], q0: number, q1: number): number[] {
+  // Each beat's notes, filed in one pass: those starting in it and those sounding in it.
+  const first = Math.floor(q0 + 1e-9);
+  const count = Math.max(0, Math.ceil(q1 - 1e-9) - first);
+  const starting: ScoreNote[][] = Array.from({ length: count }, () => []);
+  const sounding: ScoreNote[][] = Array.from({ length: count }, () => []);
+  for (const n of notes) {
+    if (n.qOff <= q0 || n.qOn >= q1) continue;
+    const s = Math.max(0, Math.floor(n.qOn + 1e-6) - first);
+    const e = Math.min(count - 1, Math.ceil(n.qOff - 1e-6) - first - 1);
+    for (let b = s; b <= e; b++) {
+      const lo = Math.max(first + b, q0);
+      const hi = Math.min(first + b + 1, q1);
+      if (n.qOn < hi - 1e-6 && n.qOff > lo + 1e-6) sounding[b].push(n);
+    }
+    if (n.qOn >= q0 - 1e-6 && s < count && n.qOn < Math.min(first + s + 1, q1) - 1e-6) starting[s].push(n);
+  }
   const changes: number[] = [];
   let prev: Set<number> | undefined;
   let prevBass = -1;
-  for (let b = Math.floor(q0 + 1e-9); b < q1 - 1e-9; b++) {
-    const lo = Math.max(b, q0);
-    const hi = Math.min(b + 1, q1);
-    const starting = notes.filter((n) => n.qOn >= lo - 1e-6 && n.qOn < hi - 1e-6);
-    if (!starting.length) continue;
-    const sounding = notes.filter((n) => n.qOn < hi - 1e-6 && n.qOff > lo + 1e-6);
-    const bass = Math.min(...sounding.map((n) => n.midi)) % 12;
-    const fresh = starting.some((n) => !prev?.has(n.midi % 12));
-    if (prev && (bass !== prevBass || fresh)) changes.push(Math.min(...starting.map((n) => n.qOn)));
-    prev = new Set(sounding.map((n) => n.midi % 12));
+  for (let b = 0; b < count; b++) {
+    if (!starting[b].length) continue;
+    const bass = Math.min(...sounding[b].map((n) => n.midi)) % 12;
+    const fresh = starting[b].some((n) => !prev?.has(n.midi % 12));
+    if (prev && (bass !== prevBass || fresh)) changes.push(Math.min(...starting[b].map((n) => n.qOn)));
+    prev = new Set(sounding[b].map((n) => n.midi % 12));
     prevBass = bass;
   }
   return changes;
@@ -214,7 +226,9 @@ export function shapeDynamics(input: DynamicsInput): ScoreEvents {
       const rule = voiceOf.get(i);
       const db = (rule?.gainDb ?? 0) + (rule?.varyDb ? rule.varyDb * noise(part.index, i) : 0);
       const velocity = clamp(Math.round(level(n.qOn) * velocityGain(db)), 1, 127) / 127;
-      return { ...n, velocity, leadSec: rule?.lead ? leadSec : undefined, voice: rule?.id };
+      // Ahead for a leading voice; a little either way for a jittered one (a different draw from its level's).
+      const ahead = (rule?.lead ? leadSec : 0) + (rule?.jitterMs ? (rule.jitterMs / 1000) * noise(part.index + 7919, i) : 0);
+      return { ...n, velocity, leadSec: ahead || undefined, voice: rule?.id };
     });
     const pedal = pedalEvents(part, input);
     const controls = pedal.length ? [...part.controls.filter((c) => c.number !== 64), ...pedal].sort((a, b) => a.q - b.q) : part.controls;
