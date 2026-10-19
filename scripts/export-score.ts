@@ -7,6 +7,9 @@ import { loadScoreFile } from './lib/load-score';
 const file = process.argv[2];
 if (!file) throw new Error('Usage: export-score.ts <score.musicxml|.mxl>');
 const score = await loadScoreFile(file);
+// The vocal line: the part on the staff that carries lyrics.
+const voiceStaff = [...score.lyrics.keys()].map((id) => score.staffOf.get(id)).find((s) => s);
+const voicePart = score.events.parts.find((p) => voiceStaff !== undefined && p.tracks.includes(Number(voiceStaff) - 1));
 
 process.stdout.write(
   JSON.stringify({
@@ -15,6 +18,7 @@ process.stdout.write(
     endQ: score.index.endQ,
     tempos: score.events.tempos,
     parts: score.events.parts.map((p) => ({ index: p.index, name: p.name, program: p.program })),
+    voicePart: voicePart?.index,
     notes: score.events.parts.flatMap((p) => p.notes.map((n) => ({ part: p.index, pitch: n.midi, qOn: n.qOn, qOff: n.qOff }))),
     measures: score.index.played.map((m) => ({ label: score.index.measures[m.measureIndex].label, q0: m.q0, q1: m.q1 })),
   }),

@@ -49,16 +49,34 @@ def decode(path: Path) -> np.ndarray:
 
 
 def trim_silence(audio: np.ndarray, threshold_db: float = -60.0) -> tuple[np.ndarray, float]:
-    """Crops leading and trailing silence (recordings often start with seconds of it, which would
-    otherwise be stretched over the first bars). Returns the cropped audio and the start offset."""
+    """Crops what comes before and after the music. Recordings often start with seconds of
+    digital silence, then room noise or hiss, before the first chord; either would otherwise be
+    stretched over the first bars. Returns the cropped audio and the start offset."""
     hop = FS // 20  # 50 ms
     frames = len(audio) // hop
-    rms = np.sqrt(np.mean(audio[: frames * hop].reshape(frames, hop) ** 2, axis=1))
-    loud = np.nonzero(20 * np.log10(rms + 1e-9) > threshold_db)[0]
+    level = 20 * np.log10(np.sqrt(np.mean(audio[: frames * hop].reshape(frames, hop) ** 2, axis=1)) + 1e-9)
+    loud = np.nonzero(level > threshold_db)[0]
     if not len(loud):
         return audio, 0.0
-    start = max(0, loud[0] * hop - FS // 4)
-    end = min(len(audio), (loud[-1] + 1) * hop + FS // 2)
+    first, last = loud[0], loud[-1]
+
+    # Noise before the music: if the first two seconds after the silence sit far below the
+    # piece's typical level, the music has surely started once the level stays 10 dB above that
+    # floor for a second; it began where that rise first left the floor (3 dB above it).
+    smooth = np.convolve(level, np.ones(10) / 10, mode="same")  # 0.5 s
+    floor = np.median(smooth[first : first + 40])
+    typical = np.median(smooth[first : last + 1])
+    if typical - floor > 15:
+        above = smooth[first : last + 1] > floor + 10
+        held = np.convolve(above, np.ones(20), mode="valid") == 20  # a full second above
+        if held.any():
+            sure = first + int(np.argmax(held))
+            while sure > first and level[sure - 1] > floor + 3:
+                sure -= 1
+            first = sure
+
+    start = max(0, first * hop - FS // 4)
+    end = min(len(audio), (last + 1) * hop + FS // 2)
     return audio[start:end], start / FS
 
 

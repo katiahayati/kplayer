@@ -12,3 +12,4 @@ public/soundfonts/*.sf3
 /*.m4a
 /*.wav
 .venv/
+__pycache__/

@@ -4,11 +4,16 @@
 // take extra time. Then checks the result against the recording with the same
 // timing engine the player uses.
 //
-// Usage: npx tsx scripts/fit-performance.ts score.mxl alignment.json out.kplayer.json ["Performer"] [curves.csv]
+// Usage: npx tsx scripts/fit-performance.ts score.mxl alignment.json out.kplayer.json
+//          [--performer "Name"] [--voice voice.json] [--curves curves.csv]
+// --voice takes the singer's note times (tools/align_voice.py): where she
+// sings, her timing corrects the full-score alignment.
 
 import fs from 'node:fs';
+import { parseArgs } from 'node:util';
 import { anchorAtQ, breathWindow, resolveAnchor } from '../src/perf/anchors';
 import { compileGestures } from '../src/perf/compile';
+import { bumpShape } from '../src/perf/curves';
 import { buildTimeMap, type TempoPoint } from '../src/perf/timeline';
 import type { Anchor, Gesture, PerformanceDoc } from '../src/perf/types';
 import { loadScoreFile } from './lib/load-score';
@@ -23,8 +28,13 @@ const MIN_BREATH_MS = 100;
 const STEP = 0.25;
 const SNAP = 0.5;
 
-const [scoreFile, alignmentFile, outFile, performer = 'the recording', curvesFile] = process.argv.slice(2);
-if (!outFile) throw new Error('Usage: fit-performance.ts score.mxl alignment.json out.kplayer.json ["Performer"] [curves.csv]');
+const { positionals, values: opts } = parseArgs({
+  allowPositionals: true,
+  options: { performer: { type: 'string', default: 'the recording' }, voice: { type: 'string' }, curves: { type: 'string' } },
+});
+const [scoreFile, alignmentFile, outFile] = positionals;
+if (!outFile) throw new Error('Usage: fit-performance.ts score.mxl alignment.json out.kplayer.json [--performer "Name"] [--voice voice.json] [--curves curves.csv]');
+const { performer, curves: curvesFile } = opts;
 
 const score = await loadScoreFile(scoreFile);
 const alignment = JSON.parse(fs.readFileSync(alignmentFile, 'utf8')) as { score: { sha256: string }; recording: string; onsets: [number, number][] };
@@ -44,9 +54,46 @@ const interp = (x: number, xs: number[], ys: number[]): number => {
   return ys[lo] + ((x - xs[lo]) / (xs[hi] - xs[lo])) * (ys[hi] - ys[lo]);
 };
 const recQ = alignment.onsets.map((o) => o[0]);
-const recT = alignment.onsets.map((o) => o[1]);
+const orchT = alignment.onsets.map((o) => o[1]);
+const recT = opts.voice ? followVoice(JSON.parse(fs.readFileSync(opts.voice, 'utf8'))) : orchT;
 /** When score position q happens in the recording. */
 const tRec = (q: number) => interp(q, recQ, recT);
+
+/**
+ * Where the singer sings, her note times take over from the full-score
+ * alignment. Her times are judged against her own neighbouring notes, not the
+ * full-score alignment (which can itself be wrong where the voice rests): a
+ * note is dropped only if it makes a tempo spike, much faster on one side and
+ * much slower on the other than across both. Between anchors the correction is
+ * interpolated; beyond a phrase it fades out over two beats.
+ */
+function followVoice(voice: { notes: { q: number; expected: number; found: number | null }[] }): number[] {
+  const raw = voice.notes.filter((n) => n.found !== null).map((n) => ({ q: n.q, t: n.found!, c: n.found! - n.expected }));
+  const speed = (a: { q: number; t: number }, b: { q: number; t: number }) => (b.q - a.q) / Math.max(b.t - a.t, 1e-3);
+  const anchors = raw.filter((a, i) => {
+    const [before, after] = [raw[i - 1], raw[i + 1]];
+    if (!before || !after) return true;
+    const [inS, outS, across] = [speed(before, a), speed(a, after), speed(before, after)];
+    const spike = (inS > 1.8 * across && outS < across / 1.8) || (inS < across / 1.8 && outS > 1.8 * across);
+    return a.t > before.t && !spike;
+  });
+  const FADE = 2;
+  const MAX_GAP = 4;
+  const correction = (q: number): number => {
+    let i = anchors.findIndex((a) => a.q > q);
+    if (i === -1) i = anchors.length;
+    const before = anchors[i - 1];
+    const after = anchors[i];
+    if (before && after && after.q - before.q <= MAX_GAP) return before.c + ((q - before.q) / (after.q - before.q)) * (after.c - before.c);
+    const fade = (a: { q: number; c: number } | undefined) => (a ? a.c * Math.max(0, 1 - Math.abs(q - a.q) / FADE) : 0);
+    return Math.abs(fade(before)) > Math.abs(fade(after)) ? fade(before) : fade(after);
+  };
+  const out = recQ.map((q, i) => orchT[i] + correction(q));
+  // Keep time moving forward.
+  for (let i = 1; i < out.length; i++) out[i] = Math.max(out[i], out[i - 1] + 0.005);
+  console.error(`following the singer: ${anchors.length} of ${voice.notes.length} sung notes used as anchors`);
+  return out;
+}
 
 const tempos: TempoPoint[] = score.events.tempos;
 const written = (q: number) => [...tempos].reverse().find((t) => t.q <= q + 1e-9)?.bpm ?? 120;
@@ -141,21 +188,20 @@ const voiceStaff = [...score.lyrics.keys()].map((nid) => score.staffOf.get(nid))
 const voicePart = score.events.parts.find((p) => p.tracks.includes(Number(voiceStaff) - 1)) ?? score.events.parts[0];
 const tick = 1 / 120; // Verovio's MIDI ends notes a tick early
 const voiceNotes = voicePart.notes.map((n) => ({ qOn: n.qOn, qOff: n.qOff + tick }));
+// Breaths go where the singer has to take the time: after a punctuated syllable
+// (the end of its note, ties included) that the next sung note follows straight
+// away. Before a rest she breathes in the rest; any extra time there is the
+// conductor's tempo, which the sections carry.
 const boundaries = new Set<number>();
-// After a punctuated syllable (the end of its note, ties included)…
 for (const [nid, syl] of score.lyrics) {
   if (!/[,.;:!?]['’"]?$/.test(syl)) continue;
   const q = score.index.spans.get(nid)?.[0]?.qOn;
-  const note = q === undefined ? undefined : voiceNotes.find((n) => Math.abs(n.qOn - q) < 1e-6);
-  if (note) boundaries.add(Math.round(note.qOff * 96) / 96);
+  const i = q === undefined ? -1 : voiceNotes.findIndex((n) => Math.abs(n.qOn - q) < 1e-6);
+  const [note, next] = [voiceNotes[i], voiceNotes[i + 1]];
+  if (note && next && next.qOn - note.qOff < 0.05) boundaries.add(Math.round(note.qOff * 96) / 96);
 }
-// …and before every rest in the voice.
-voiceNotes.forEach((n, i) => {
-  const next = voiceNotes[i + 1];
-  if (next && next.qOn - n.qOff >= 0.5 - 1e-6) boundaries.add(Math.round(n.qOff * 96) / 96);
-});
 
-const breathExtra: { q: number; sec: number }[] = [];
+const breathExtra: { q: number; sec: number; start: number; end: number }[] = [];
 for (const q of [...boundaries].sort((a, b) => a - b)) {
   const w = breathWindow(score.staffSpans, q, voiceStaff);
   if (!w || w.start < 2 || w.end > lastOnset - 2) continue;
@@ -164,7 +210,7 @@ for (const q of [...boundaries].sort((a, b) => a - b)) {
   if (process.env.FIT_DEBUG) console.error(`breath candidate q ${q} (window ${w.start}–${w.end}): ${Math.round(extra * 1000)} ms`);
   if (extra * 1000 < MIN_BREATH_MS) continue;
   const extraMs = Math.min(1500, Math.round(extra * 100) * 10);
-  breathExtra.push({ q, sec: extraMs / 1000 });
+  breathExtra.push({ q, sec: extraMs / 1000, start: w.start, end: w.end });
   gestures.push({ id: `b${++id}`, type: 'breath', at: endAnchor(q), staff: voiceStaff, extraMs });
 }
 
@@ -177,7 +223,20 @@ for (const q of [...boundaries].sort((a, b) => a - b)) {
 const segs = knots.slice(0, -1).map((k, i) => ({ a: Math.max(k, i === 0 ? SNAP : 0), b: knots[i + 1] })).filter((g) => g.b > g.a);
 const nodes = [segs[0].a, ...segs.map((g) => g.b)];
 const target = nodes.map(levelAt);
-const recorded = segs.map((g) => tRec(g.b) - tRec(g.a) - breathExtra.filter((x) => x.q > g.a && x.q <= g.b).reduce((s, x) => s + x.sec, 0));
+/** The part of a breath's extra time that falls in [a, b]: its window can straddle sections. */
+const breathShare = (x: (typeof breathExtra)[number], a: number, b: number) => {
+  const n = 200;
+  let inside = 0;
+  let total = 0;
+  for (let j = 0; j < n; j++) {
+    const q = x.start + ((j + 0.5) / n) * (x.end - x.start);
+    const e = bumpShape(q, x.start, x.q, x.q, x.end);
+    total += e;
+    if (q >= a && q < b) inside += e;
+  }
+  return total > 0 ? (x.sec * inside) / total : 0;
+};
+const recorded = segs.map((g) => tRec(g.b) - tRec(g.a) - breathExtra.reduce((s, x) => s + breathShare(x, g.a, g.b), 0));
 // Past the last onset the recording only shows the final chord's release, which isn't tempo.
 const timed = segs.map((g) => (g.b <= lastOnset + 1e-9 ? 1 : 0));
 const smoothstep = (u: number) => u * u * u * (u * (u * 6 - 15) + 10);
@@ -202,25 +261,26 @@ const segment = (g: { a: number; b: number }, za: number, zb: number) => {
 const LAMBDA = 4; // seconds² per (log tempo)²: how strongly levels stay near the measured shape
 /** Levels never move further than this from the measured curve (log tempo). */
 const MAX_SHIFT = Math.log(1.15);
+// Fit cumulative time: the file should be in sync with the recording at every
+// turning point, so time one section can't produce is made up by the next
+// rather than carried for the rest of the piece.
 const z = [...target];
 for (let iter = 0; iter < 30; iter++) {
   const n = z.length;
-  const A = Array.from({ length: n }, () => new Array<number>(n).fill(0));
-  const rhs = new Array<number>(n).fill(0);
-  segs.forEach((g, i) => {
-    const { d, dA: a0, dB: b0 } = segment(g, z[i], z[i + 1]);
-    const [dA, dB] = [a0 * timed[i], b0 * timed[i]];
-    const r = (d - recorded[i]) * timed[i];
-    A[i][i] += dA * dA;
-    A[i][i + 1] += dA * dB;
-    A[i + 1][i] += dA * dB;
-    A[i + 1][i + 1] += dB * dB;
-    rhs[i] -= dA * r;
-    rhs[i + 1] -= dB * r;
-  });
-  for (let k = 0; k < n; k++) {
-    A[k][k] += LAMBDA;
-    rhs[k] -= LAMBDA * (z[k] - target[k]);
+  const A = Array.from({ length: n }, (_, k) => Array.from({ length: n }, (_, j) => (j === k ? LAMBDA : 0)));
+  const rhs = z.map((zk, k) => -LAMBDA * (zk - target[k]));
+  const grad = new Array<number>(n).fill(0);
+  let behind = 0; // file minus recording, at the end of the section so far
+  for (let i = 0; i < segs.length && timed[i]; i++) {
+    const { d, dA, dB } = segment(segs[i], z[i], z[i + 1]);
+    behind += d - recorded[i];
+    grad[i] += dA;
+    grad[i + 1] += dB;
+    for (let k = 0; k <= i + 1; k++) {
+      if (!grad[k]) continue;
+      rhs[k] -= grad[k] * behind;
+      for (let j = 0; j <= i + 1; j++) A[k][j] += grad[k] * grad[j];
+    }
   }
   const step = solve(A, rhs);
   z.forEach((_, k) => (z[k] = Math.max(target[k] - MAX_SHIFT, Math.min(target[k] + MAX_SHIFT, z[k] + Math.max(-0.2, Math.min(0.2, step[k]))))));
@@ -234,8 +294,13 @@ if (process.env.FIT_DEBUG) {
   });
 }
 
-const section = (q0: number, q1: number, ratio: number) => {
+// Each section moves from the level actually reached so far, so a change too small
+// to be worth a section isn't lost: it carries into the next one.
+let reached = 0;
+const section = (q0: number, q1: number, level: number) => {
+  const ratio = Math.exp(level - reached);
   if (Math.abs(Math.log(ratio)) < 0.005) return;
+  reached = level;
   gestures.push({
     id: `s${++id}`,
     type: 'ramp',
@@ -246,8 +311,8 @@ const section = (q0: number, q1: number, ratio: number) => {
   });
 };
 // Settle into the opening tempo over the first half beat, then follow the turning points.
-section(0, nodes[0], Math.exp(z[0]));
-segs.forEach((g, i) => section(g.a, g.b, Math.exp(z[i + 1] - z[i])));
+section(0, nodes[0], z[0]);
+segs.forEach((g, i) => section(g.a, g.b, z[i + 1]));
 
 const spansFor = (g: Gesture[]) =>
   compileGestures(
@@ -287,7 +352,7 @@ console.error('  ' + report('+ sections + breaths', finalMap));
 
 const doc: PerformanceDoc & { source: string } = {
   version: 1,
-  source: `Fitted to ${performer} (${alignment.recording}) by kplayer's recording aligner`,
+  source: `Fitted to ${performer} (${alignment.recording}) by kplayer's recording aligner${opts.voice ? ', following the singer' : ''}`,
   score: { name: score.name, sha256: score.sha256 },
   tempoFactor,
   parts: {},

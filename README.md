@@ -67,8 +67,22 @@ the singer takes extra time at a phrase end. Import the result with **Import…*
 python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt   # once
 npm run export-score -- song.mxl > /tmp/song-notes.json
 .venv/bin/python tools/align_recording.py /tmp/song-notes.json recording.webm /tmp/alignment.json
-npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json "Performer"
+npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json --performer "Performer"
 ```
+
+For a song, it can follow the singer more closely. Isolate the voice with [Demucs](https://github.com/facebookresearch/demucs),
+align the score's vocal line to it, and pass the result to the fit:
+
+```sh
+.venv/bin/pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && .venv/bin/pip install demucs==4.0.1   # once
+ffmpeg -ss START -i recording.webm -ac 2 -ar 44100 /tmp/music.wav     # START: where the music begins (printed by the aligner)
+.venv/bin/python -m demucs.separate -n htdemucs --two-stems=vocals --segment 7 -o /tmp/sep /tmp/music.wav
+.venv/bin/python tools/align_voice.py /tmp/song-notes.json /tmp/alignment.json /tmp/sep/htdemucs/music/vocals.wav START /tmp/voice.json
+npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json --performer "Performer" --voice /tmp/voice.json
+npm run check-voice -- song.mxl song.performer.kplayer.json /tmp/voice.json   # how closely a file follows the singer
+```
+
+Demucs needs about 4.5 GB of memory for a 7-minute song.
 
 The aligner ([synctoolbox](https://github.com/meinardmueller/synctoolbox)) lines the recording up with the score
 note by note: any key or tuning difference, and silence at either end, are handled. The fitting step then checks
