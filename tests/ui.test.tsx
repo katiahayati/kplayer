@@ -166,5 +166,28 @@ describe('app', () => {
     expect(document.querySelector('.list')).toBeNull();
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
     expect(document.querySelectorAll('.list li button').length).toBe(count);
+
+    // Import a voicing (only the dynamics), see its notes, and how loud a selected note plays.
+    const gesturesBefore = document.querySelectorAll('.list li button').length;
+    const voicing = { dynamics: { voices: [{ id: 'rh', name: 'Right hand', select: { part: 1, staff: [1] }, gainDb: -6 }] } };
+    const voicingInput = document.querySelector<HTMLInputElement>('.dynamics input[type=file]')!;
+    Object.defineProperty(voicingInput, 'files', { value: [new NodeFile([JSON.stringify(voicing)], 'voicing.json')], configurable: true });
+    await act(async () => void voicingInput.dispatchEvent(new Event('change', { bubbles: true })));
+    await vi.waitFor(() => expect(text()).toContain('Right hand'));
+    expect(text()).toContain('Piano, upper staff');
+    expect(document.querySelectorAll('.list li button').length).toBe(gesturesBefore); // the phrasing is kept
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await click(button('Right hand'));
+    const lit = document.querySelectorAll('.svg-pages g.in-range');
+    expect(lit.length).toBeGreaterThan(0);
+    expect([...lit].every((g) => g.closest('g.staff') === g.closest('g.measure')!.querySelectorAll('g.staff')[1])).toBe(true);
+    // The fixture has no written dynamics, so mf (72), 6 dB down.
+    const pianoRh = document.querySelectorAll('g.measure')[0].querySelectorAll('g.staff')[1].querySelectorAll('g.note');
+    await click(pianoRh[0]);
+    expect(text()).toContain(`Selected note: Right hand, velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
+    await slide(document.querySelector<HTMLInputElement>('.dynamics .slider input[type=range]')!, -12);
+    expect(text()).toContain(`Selected note: Right hand, velocity ${Math.round(72 * 10 ** (-12 / 40))}`);
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    expect(text()).toContain(`velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
   });
 });

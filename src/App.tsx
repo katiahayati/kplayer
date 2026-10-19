@@ -10,6 +10,7 @@ import { emptyDoc, type Anchor, type Gesture, type PartSetting, type Performance
 import { ScoreView, type BreathMarker } from './score/ScoreView';
 import { loadScore, type LoadedScore } from './score/verovio';
 import { downloadBlob, loadSaved, parseDoc, save } from './storage/persist';
+import { DynamicsPanel } from './ui/DynamicsPanel';
 import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
 import { Transport } from './ui/Transport';
@@ -32,6 +33,8 @@ export default function App() {
   const [expressive, setExpressive] = useState(true);
   /** Play dynamics (written and your voicing), or every note at one level as Verovio gives them. */
   const [dynamicsOn, setDynamicsOn] = useState(true);
+  /** The voice whose notes are lit up in the score. */
+  const [focusVoice, setFocusVoice] = useState<string>();
   const [selection, setSelection] = useState<Selection>({ kind: 'none' });
   const [loopGestureId, setLoopGestureId] = useState<string>();
   /** A shape waiting for a note click to set its peak or hold note. */
@@ -318,8 +321,16 @@ export default function App() {
     if (span) {
       for (const [id, spans] of score.index.spans) if (spans[0].qOn >= span[0] - 1e-9 && spans[0].qOn < span[1] - 1e-9) range.add(id);
     }
+    if (focusVoice && shaped) for (const p of shaped.parts) for (const n of p.notes) if (n.voice === focusVoice && n.id) range.add(n.id);
     return { selectedIds: sel, rangeIds: range };
-  }, [score, selection, noteRange, selectedGesture, allTiming]);
+  }, [score, selection, noteRange, selectedGesture, allTiming, focusVoice, shaped]);
+
+  /** The selected note as it plays: its voice and velocity (the pass nearest the selection). */
+  const selectedNote = useMemo(() => {
+    if (!shaped || !dynamicsOn || selection.kind !== 'notes' || !noteRange?.single) return undefined;
+    const matches = shaped.parts.flatMap((p) => p.notes.filter((n) => n.id === selection.anchorId));
+    return matches.sort((a, b) => Math.abs(a.qOn - noteRange.q0) - Math.abs(b.qOn - noteRange.q0))[0];
+  }, [shaped, dynamicsOn, selection, noteRange]);
 
   const breathMarkers = useMemo<BreathMarker[]>(() => {
     if (!score) return [];
@@ -396,6 +407,17 @@ export default function App() {
     if (!score || !map) return;
     const bytes = renderPerformanceMidi(shaped ?? score.events, map, { parts: doc.parts });
     downloadBlob(bytes as Uint8Array<ArrayBuffer>, `${baseName(score.name)}.performance.mid`, 'audio/midi');
+  };
+  const importVoicing = async (file: File) => {
+    try {
+      const raw = JSON.parse(await file.text());
+      const dynamics = raw?.dynamics ?? (Array.isArray(raw?.voices) ? raw : undefined);
+      if (!dynamics || !Array.isArray(dynamics.voices)) throw new Error(`${file.name} has no voicing in it.`);
+      setDoc({ ...doc, dynamics });
+      setFocusVoice(undefined);
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
   const importJson = async (file: File) => {
     try {
@@ -536,7 +558,18 @@ export default function App() {
               picking={pickField}
               onPick={(field) => setPicking(field && selectedGesture ? { gestureId: selectedGesture.id, field } : undefined)}
               onSelect={(id) => setSelection({ kind: 'gesture', id })}
-            />
+            >
+              <DynamicsPanel
+                dynamics={doc.dynamics}
+                partNames={score.events.parts.map((p) => p.name)}
+                on={dynamicsOn}
+                focus={focusVoice}
+                note={selectedNote}
+                onChange={(dynamics, key) => setDoc({ ...doc, dynamics }, key)}
+                onFocus={setFocusVoice}
+                onImport={importVoicing}
+              />
+            </Inspector>
           </main>
           <TempoLane
             map={map}

@@ -23,6 +23,8 @@ export interface ScoreNote {
   tremolo?: boolean;
   /** Sound this many seconds ahead of the beat (a melody brought out). */
   leadSec?: number;
+  /** The performance voice (VoiceRule id) that set its level, if any. */
+  voice?: string;
 }
 
 export interface ScoreControl {

@@ -92,6 +92,9 @@ export interface NoteSelector {
   /** Only notes from this pitch up / up to this pitch (MIDI numbers). */
   minPitch?: number;
   maxPitch?: number;
+  /** Only notes at least / at most this long, in quarter notes (tied notes count whole): long melody notes vs figuration. */
+  minLength?: number;
+  maxLength?: number;
 }
 
 /**

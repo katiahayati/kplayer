@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors';
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
@@ -42,6 +42,8 @@ interface Props {
   picking?: PickField;
   onPick: (field?: PickField) => void;
   onSelect: (id: string) => void;
+  /** Panels shown after the gesture list. */
+  children?: ReactNode;
 }
 
 export function Inspector(p: Props) {
@@ -49,6 +51,7 @@ export function Inspector(p: Props) {
     <aside className="inspector">
       {p.gesture ? <GestureEditor {...p} gesture={p.gesture} /> : <SelectionActions {...p} />}
       <GestureList {...p} />
+      {p.children}
     </aside>
   );
 }

@@ -636,3 +636,47 @@ button.small {
     max-height: 40vh;
   }
 }
+
+/* The voicing: one block per voice, its notes lit in the score when focused. */
+.voices {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.voices li {
+  padding: 6px 6px 2px;
+  border-radius: 6px;
+}
+
+.voices li.off {
+  opacity: 0.5;
+}
+
+.voices li.focus {
+  background: color-mix(in srgb, var(--select) 14%, transparent);
+}
+
+.voice-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.voice-head .voice-name {
+  border: none;
+  background: none;
+  padding: 0;
+  font-weight: 500;
+  text-align: left;
+  flex: 1;
+}
+
+.voice-what {
+  font-size: 12px;
+  margin: 2px 0 0 22px;
+}
+
+.voices .slider {
+  margin-left: 22px;
+}

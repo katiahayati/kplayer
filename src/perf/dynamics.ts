@@ -125,6 +125,8 @@ function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => 
     if (s.tremolo !== undefined && !!n.tremolo !== s.tremolo) return;
     if (s.minPitch !== undefined && n.midi < s.minPitch) return;
     if (s.maxPitch !== undefined && n.midi > s.maxPitch) return;
+    if (s.minLength !== undefined && n.qOff - n.qOn < s.minLength - 0.01) return;
+    if (s.maxLength !== undefined && n.qOff - n.qOn > s.maxLength + 0.01) return;
     candidates.push(i);
   });
   if (!s.top && !s.bottom) return new Set(candidates);
@@ -209,7 +211,7 @@ export function shapeDynamics(input: DynamicsInput): ScoreEvents {
       const rule = voiceOf.get(i);
       const db = (rule?.gainDb ?? 0) + (rule?.varyDb ? rule.varyDb * noise(part.index, i) : 0);
       const velocity = clamp(Math.round(level(n.qOn) * velocityGain(db)), 1, 127) / 127;
-      return { ...n, velocity, leadSec: rule?.lead ? leadSec : undefined };
+      return { ...n, velocity, leadSec: rule?.lead ? leadSec : undefined, voice: rule?.id };
     });
     const pedal = pedalEvents(part, input);
     const controls = pedal.length ? [...part.controls.filter((c) => c.number !== 64), ...pedal].sort((a, b) => a.q - b.q) : part.controls;
