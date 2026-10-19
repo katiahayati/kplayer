@@ -13,7 +13,13 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
   highlighting).
 - **MIDI**: PPQ 120, one track per staff (staff n → track n − 1). Staves of one instrument share a channel, so
   kplayer groups tracks by channel into parts (Voice, Piano).
-  Notes are 1 tick short of their written length. Velocity is a flat 90 in the fixture; dynamics are untested.
+  Notes are 1 tick short of their written length. **Velocity is a flat 90 for every note, dynamics or not**
+  (checked on a full song with p … fff). The MEI has the dynamics: `<dynam staff tstamp val>` with `val` the MIDI
+  velocity the notation program gave it (MuseScore exports one), and `<hairpin form tstamp tstamp2="1m+3">`.
+  `getTimesForElement` returns nothing for them, so kplayer places them from the measure and beat (beats in the
+  meter's unit: a 3/2 bar's beat is a half note). Tuplets can land a tick off their timemap position in the MIDI.
+- **Pitches from MEI**: `pname`, `oct` and `accid` / `accid.ges` (on the note or its `<accid>` child) give the same
+  pitch as `getMIDIValuesForElement` for all 3,419 notes of a real score, in 37 ms instead of 2.5 s.
   Tempo comes through as MIDI tempo events (72, then 96 at the expanded position).
 - **Element attributes** (`getElementAttr`): a measure has `n` (the printed number), a staff has `n`, and a breath
   mark has `{ staff, tstamp }` (e.g. `tstamp: '2.9'`, just before beat 3). kplayer anchors a written breath mark
@@ -70,6 +76,11 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
 - Real performances exceed the old per-section limits (Thielemann goes from 40 to 83 BPM within three bars), so
   sections now arrive anywhere from 20% to 4× the basic tempo. Each stores that target relative to the basic tempo,
   not as a change from the section before, so editing or deleting one section leaves the others where they were.
+
+- **Offline rendering** (`spessasynth_core`: `SpessaSynthProcessor` + `SpessaSynthSequencer`, as in its README)
+  renders a 7-minute piano part in about 17 s at 32 kHz. Two traps: `audioToWav` **normalises to the peak by
+  default** (pass `{ normalizeAudio: false }` to compare renders), and the core sequencer **skips to the first
+  note while loading the song** unless `skipToFirstNoteOn = false` is set before `loadNewSongList`.
 
 ## Tooling
 

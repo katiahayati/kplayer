@@ -1,6 +1,6 @@
 ---
 name: learn-performance
-description: Learn how a performer shapes a piece (basic tempo, rubato, accelerandos, broadenings, breaths) from a recording, and write it as a kplayer performance file to import. Use this whenever the user gives a recording (a YouTube link, an audio or video file) of a piece they have as MusicXML and wants kplayer to play it "like" that performer, wants to compare performers' tempi, or says a performance learned from a recording sounds wrong somewhere (an intro at half speed, "something weird happens in bar 83", a breath that isn't one, a section too fast). Also use it when aligning any recording to a score in this project.
+description: Learn how a performer shapes a piece (basic tempo, rubato, accelerandos, broadenings, breaths, and the conductor's dynamic shape) from a recording, and write it as a kplayer performance file to import. Use this whenever the user gives a recording (a YouTube link, an audio or video file) of a piece they have as MusicXML and wants kplayer to play it "like" that performer, wants to compare performers' tempi, or says a performance learned from a recording sounds wrong somewhere (an intro at half speed, "something weird happens in bar 83", a breath that isn't one, a section too fast). Also use it when aligning any recording to a score in this project.
 ---
 
 # Learning a performance from a recording
@@ -71,9 +71,27 @@ Use a work folder `analysis/<short-name>/` (git-ignored). `G=.claude/skills/lear
    no singing (an orchestral opening), `.venv/bin/python $G/pulse_grid.py analysis/X/sep/htdemucs/music/no_vocals.wav
    START END SUB` finds the steady tempo that best fits the attacks, where SUB is the attacks per quarter note in the
    texture (six in a sextuplet figuration). Times are seconds into `no_vocals.wav`, which starts at the music start.
-8. **Compare performers**, if there's more than one: `.venv/bin/python $G/compare.py analysis/A analysis/B -- 1-11 12-20 …`
+8. **Dynamics** (optional; the user may want the conductor's shape as well as the tempo). Measure the
+   accompaniment's loudness per beat: `$G/guard.sh .venv/bin/python tools/dynamics_arc.py analysis/X/alignment.json analysis/X/sep/htdemucs/music/no_vocals.wav START analysis/X/arc.json`
+   (START = where the stem starts in the recording; 0 for an instrumental recording itself). Then
+   `$G/guard.sh npx tsx scripts/fit-dynamics.ts score.mxl OUT.kplayer.json analysis/X/arc.json voicing.json OUT-dynamics.kplayer.json --part 1 --source "Name"`
+   (about a minute; ~3.4 GB peak in total). It needs a voicing (which notes lead, which recede: see the README's
+   Dynamics section; `voicing-example.json` in this skill's folder is a starting point for a piano reduction), renders the piano offline through
+   kplayer's synth, and fits a level every half bar until the render's loudness follows the recording's (each
+   relative to its median): expect ~8 dB rms off with the written dynamics, ~2 dB after. Check the balance with
+   `$G/guard.sh npx tsx scripts/voice-balance.ts score.mxl OUT-dynamics.kplayer.json`: the melody should be on top
+   in most bars by 3–6 dB. Things to know:
+   - Piano reductions copy dynamics from *some* instruments: the reduction can say pp where the orchestra plays out
+     (Apollo bars 8–11, 87–88). Before blaming the stem for vocal leakage, measure the vocals stem too: if the
+     singer is silent there, the orchestra really is loud.
+   - A piano can't swell a held note, so only beats where the piano strikes count; otherwise the fit chases the
+     orchestra's sustain with ever louder attacks.
+   - Recordings' dynamic ranges differ a lot (Thielemann 19 dB, Lott's 30 dB, 2nd–98th percentile).
+   - Renders must not be normalised (`audioToWav` does by default) and must start at the score's start (the core
+     sequencer skips to the first note unless told not to before loading); both are handled in `scripts/lib/render.ts`.
+9. **Compare performers**, if there's more than one: `.venv/bin/python $G/compare.py analysis/A analysis/B -- 1-11 12-20 …`
    prints each performance's average tempo for the bar ranges you give (pick the score's sections or phrases).
-9. **Deliver** the file to the project root as `<score>.<performer>.kplayer.json` (not committed unless asked). Tell
+10. **Deliver** the file to the project root as `<score>.<performer>.kplayer.json` (not committed unless asked). Tell
    the user that importing replaces their current phrasing for that score (Export JSON first to keep it, or Ctrl+Z).
    Summarize the performer's shaping musically: basic tempo, where they broaden or press, the breaths (bar,
    syllable, milliseconds), and how close the file gets.

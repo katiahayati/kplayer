@@ -1,0 +1,94 @@
+{
+ "about": "A starting voicing for a two-staff piano reduction (part 1 after a vocal part 0): figuration (eighths and shorter) and left-hand tremolo figures kept back, the right hand's long notes as melody chords with their top note brought out and slightly ahead. Add a pedal span (mode 'harmony') over the bars that should sustain. Adjust part numbers and levels to the score; check with scripts/voice-balance.ts.",
+ "dynamics": {
+  "leadMs": 20,
+  "voices": [
+   {
+    "id": "fig",
+    "name": "Figuration: repeated chords",
+    "select": {
+     "part": 1,
+     "maxLength": 0.5
+    },
+    "gainDb": -10,
+    "varyDb": 1.5
+   },
+   {
+    "id": "trem",
+    "name": "String tremolo (written out and fingered)",
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "maxLength": 0.17
+    },
+    "gainDb": -13,
+    "varyDb": 2,
+    "jitterMs": 6
+   },
+   {
+    "id": "ftrem",
+    "name": "Fingered tremolos",
+    "select": {
+     "part": 1,
+     "tremolo": true
+    },
+    "gainDb": -13,
+    "varyDb": 2,
+    "jitterMs": 6
+   },
+   {
+    "id": "lh",
+    "name": "Left-hand chords",
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "minLength": 0.7
+    },
+    "gainDb": -5
+   },
+   {
+    "id": "bass",
+    "name": "Bass",
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "minLength": 0.7,
+     "bottom": true
+    },
+    "gainDb": -3
+   },
+   {
+    "id": "chords",
+    "name": "Melody chords",
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "minLength": 0.7
+    },
+    "gainDb": -3
+   },
+   {
+    "id": "melody",
+    "name": "Melody",
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "minLength": 0.7,
+     "top": true
+    },
+    "gainDb": 5,
+    "lead": true
+   }
+  ]
+ }
+}

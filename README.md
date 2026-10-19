@@ -23,6 +23,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
 | Select a breath or section, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
 | **E** | Compare with and without your phrasing |
+| **D** | Compare with and without dynamics |
 | **Space**, double-click a note | Play/pause, play from that note |
 | Click the tempo lane | Seek; select the gesture under the cursor |
 | **Ctrl+Z** / **Ctrl+Shift+Z** | Undo / redo |
@@ -42,6 +43,13 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 - For a Broaden or Push forward you can pick the exact note its **peak** arrives on, and a note to **hold** the peak
   tempo **until**. For example: start at the rest, peak on a long held note, hold it until the next syllable, then
   ease back to tempo by the end of the phrase.
+- **Dynamics.** Verovio's MIDI plays every note at one level; kplayer plays the score's written dynamics and
+  hairpins instead, for every staff of the part they're written in. A **voicing** goes on top, in the **Dynamics**
+  panel: strands of the texture (a melody, a tremolo blanket, repeated chords, the bass), each picked by staff, voice,
+  note length, top or bottom of the chord, tremolo, and bars, with its own level in dB. Click a voice to light up its
+  notes in the score; click a note to see its voice and velocity. A voice can sound slightly **ahead** (as a pianist
+  brings out a tune) or vary a little in level and timing (so a tremolo shimmers). Sustain pedal can change with the
+  harmony. **Import voicing…** takes the dynamics from a file without touching your tempo phrasing.
 - Your work autosaves in the browser for each score. **Export JSON** saves it as a file you can import later.
   **Export MIDI** writes the timed performance for use elsewhere.
 
@@ -56,6 +64,10 @@ the tempo and its rate of change stay continuous. A breath is a smooth dip from 
 sized so those notes take exactly the extra time longer. There are no pauses: every note-on and note-off goes through
 the same T, so notes can only stretch with the curve, never get cut short. The timed performance is written as a
 fixed-tempo MIDI file and played by SpessaSynth. Verovio renders the score and gives each note its *q*.
+
+Dynamics work in MIDI velocity (written markings are MuseScore's velocities: pp 32, p 49, mf 72, f 88 …), and a
+voice's level is in decibels relative to that: a SoundFont synth plays velocity v at 40·log10(v/127) dB, so −6 dB is
+the same step at pp as at ff. `src/perf/dynamics.ts` reads each note's staff and voice from Verovio's MEI.
 
 Code map: `src/perf/` holds the timing engine (pure TypeScript, tested), `src/score/` the Verovio loading and score
 view, `src/audio/` the synth wrapper, and `src/ui/` the panels. See `NOTES.md` for findings about the libraries.
@@ -91,6 +103,20 @@ A faithful fit keeps every local tempo wobble, which can sound erratic on piano.
 big gestures and the breaths, add `--smooth 16 --turn 8 --tolerance 40 --sync 0.3`: four-bar smoothing, turning
 points only for changes of 8% or more, no extra detail, and shape preferred over exact timing. The fit reports how
 jumpy the sections are (the largest one-beat change, and how many beats change by more than 15%).
+
+### Dynamics from a recording
+
+The same alignment gives the conductor's dynamic shape: how loud the music is from moment to moment. Measure the
+accompaniment (for a song, Demucs's `no_vocals.wav`) beat by beat, then fit: kplayer renders the piano offline
+through its own synth, compares its loudness with the recording's (each relative to its median), and adjusts a
+level every half bar until they match, keeping your voicing's balance on top.
+
+```sh
+.venv/bin/python tools/dynamics_arc.py /tmp/alignment.json /tmp/sep/htdemucs/music/no_vocals.wav START /tmp/arc.json
+npm run fit-dynamics -- song.mxl song.performer.kplayer.json /tmp/arc.json voicing.json song.performer-dynamics.kplayer.json --part 1
+npm run voice-balance -- song.mxl song.performer-dynamics.kplayer.json   # is the melody on top, bar by bar?
+npm run render-audio -- song.mxl song.performer-dynamics.kplayer.json out.wav   # listen outside the browser
+```
 
 The aligner ([synctoolbox](https://github.com/meinardmueller/synctoolbox)) lines the recording up with the score
 note by note: any key or tuning difference, and silence at either end, are handled. The fitting step then checks
