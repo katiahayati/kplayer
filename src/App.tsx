@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Player, type SoundBankSource } from './audio/player';
 import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
+import { shapeDynamics } from './perf/dynamics';
 import { BREATH_PRESETS, DEFAULT_BREATH_PRESET, SECTION_DEFAULTS } from './perf/presets';
 import { renderPerformanceMidi } from './perf/render';
 import { buildTimeMap, sectionLevelAt, type TimeMap, type TimingGesture } from './perf/timeline';
@@ -29,6 +30,8 @@ export default function App() {
   const history = useHistory<PerformanceDoc>(emptyDoc());
   const doc = history.value;
   const [expressive, setExpressive] = useState(true);
+  /** Play dynamics (written and your voicing), or every note at one level as Verovio gives them. */
+  const [dynamicsOn, setDynamicsOn] = useState(true);
   const [selection, setSelection] = useState<Selection>({ kind: 'none' });
   const [loopGestureId, setLoopGestureId] = useState<string>();
   /** A shape waiting for a note click to set its peak or hold note. */
@@ -75,9 +78,23 @@ export default function App() {
     return loopAround(score.index, s[0], s[1]);
   }, [score, loopGestureId, allTiming]);
 
+  const shaped = useMemo(
+    () =>
+      score && dynamicsOn
+        ? shapeDynamics({
+            events: score.events,
+            marks: score.dynamics,
+            hairpins: score.hairpins,
+            doc: doc.dynamics,
+            resolve: (a) => resolveAnchor(score.index, a),
+            barStarts: score.index.played.map((m) => m.q0),
+          })
+        : score?.events,
+    [score, dynamicsOn, doc.dynamics],
+  );
   const midi = useMemo(
-    () => (score && map ? renderPerformanceMidi(score.events, map, { parts: doc.parts, loop }) : undefined),
-    [score, map, doc.parts, loop],
+    () => (shaped && map ? renderPerformanceMidi(shaped, map, { parts: doc.parts, loop }) : undefined),
+    [shaped, map, doc.parts, loop],
   );
 
   // ---- Player sync -----------------------------------------------------------
@@ -377,7 +394,7 @@ export default function App() {
   const exportJson = () => score && downloadBlob(JSON.stringify(doc, null, 2), `${baseName(score.name)}.kplayer.json`, 'application/json');
   const exportMidi = () => {
     if (!score || !map) return;
-    const bytes = renderPerformanceMidi(score.events, map, { parts: doc.parts });
+    const bytes = renderPerformanceMidi(shaped ?? score.events, map, { parts: doc.parts });
     downloadBlob(bytes as Uint8Array<ArrayBuffer>, `${baseName(score.name)}.performance.mid`, 'audio/midi');
   };
   const importJson = async (file: File) => {
@@ -418,6 +435,8 @@ export default function App() {
       toggleLoop();
     } else if (e.key === 'e' || e.key === 'E') {
       setExpressive((x) => !x);
+    } else if (e.key === 'd' || e.key === 'D') {
+      setDynamicsOn((x) => !x);
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && selection.kind === 'gesture') {
       e.preventDefault();
       deleteGesture(selection.id);
@@ -457,6 +476,7 @@ export default function App() {
         bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
         status={status}
         expressive={expressive}
+        dynamics={dynamicsOn}
         tempoFactor={doc.tempoFactor}
         parts={score?.events.parts ?? []}
         partSettings={doc.parts}
@@ -469,6 +489,7 @@ export default function App() {
         onExportMidi={exportMidi}
         onPlayPause={togglePlay}
         onExpressive={setExpressive}
+        onDynamics={setDynamicsOn}
         onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
         onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
         onStopLoop={() => setLoopGestureId(undefined)}

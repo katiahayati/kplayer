@@ -60,10 +60,11 @@ export function expandTremolos(
         const written = part.notes.filter(isWritten);
         if (!written.length) continue;
         part.notes = part.notes.filter((n) => !isWritten(n));
-        const velocity = written[0].velocity;
         for (let q = q0, i = 0; q < q1 - eps; q += t.unit, i++) {
           for (const midi of i % 2 ? secondPitches : firstPitches) {
-            part.notes.push({ midi, velocity, qOn: q, qOff: Math.min(q + t.unit, q1) });
+            // Each alternating note keeps the staff, voice and ID of the written note it repeats.
+            const source = written.find((n) => n.midi === midi) ?? written[0];
+            part.notes.push({ ...source, midi, qOn: q, qOff: Math.min(q + t.unit, q1), tremolo: true });
           }
         }
         for (const n of written) if (n.qOff > q1 + 0.05) part.notes.push({ ...n, qOn: q1 });

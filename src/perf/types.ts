@@ -76,6 +76,85 @@ export interface PartSetting {
   volume: number;
 }
 
+/** Which notes a voice is: all of them unless narrowed. Staff and layer numbers are as in the score. */
+export interface NoteSelector {
+  /** Part index (as in `parts`). */
+  part?: number;
+  /** Staff within the part, from 1 (a piano's right hand is 1, left hand 2). */
+  staff?: number[];
+  /** Voice (MusicXML voice / MEI layer). MuseScore numbers a piano's right-hand voices 1–4 and left-hand 5–8. */
+  layer?: number[];
+  /** Only (true) or never (false) the rapid notes of fingered tremolos. */
+  tremolo?: boolean;
+  /** Only the highest (or lowest) note at each moment among the notes selected so far. */
+  top?: boolean;
+  bottom?: boolean;
+  /** Only notes from this pitch up / up to this pitch (MIDI numbers). */
+  minPitch?: number;
+  maxPitch?: number;
+}
+
+/**
+ * A strand of the texture with its own level: the melody brought out, a tremolo
+ * kept as a soft blanket. Where voices overlap, the later one in the list wins.
+ */
+export interface VoiceRule {
+  id: string;
+  /** What it is, e.g. "Brass melody", "Cellos, tremolo". */
+  name: string;
+  enabled?: boolean;
+  /** Where it applies; the whole piece when absent. `to` is exclusive. */
+  from?: Anchor;
+  to?: Anchor;
+  select: NoteSelector;
+  /** Level relative to the written dynamic, in decibels (−6 is clearly softer, −12 a different plane). */
+  gainDb: number;
+  /** Sound slightly ahead of the other notes, as a pianist brings out a melody. */
+  lead?: boolean;
+  /** Random variation of each note's level, ± decibels, so repeated figures shimmer instead of ticking. */
+  varyDb?: number;
+}
+
+/** A dynamic the score doesn't write (taken from the full score, say). */
+export interface DynamicMarkGesture {
+  id: string;
+  at: Anchor;
+  /** A marking ("pp", "mf"…) or a MIDI velocity. */
+  level: string | number;
+  /** Part index; every part when absent. */
+  part?: number;
+}
+
+/** A crescendo or diminuendo the score doesn't write. */
+export interface HairpinGesture {
+  id: string;
+  from: Anchor;
+  to: Anchor;
+  form: 'cres' | 'dim';
+  /** Where it arrives; the next written dynamic, or one marking further, when absent. */
+  level?: string | number;
+  part?: number;
+}
+
+/** Sustain pedal over a stretch: changed with the harmony, every beat, every bar, or off. */
+export interface PedalSpan {
+  id: string;
+  from: Anchor;
+  to: Anchor;
+  mode: 'harmony' | 'beat' | 'bar' | 'off';
+  part?: number;
+}
+
+/** How loud each note plays, on top of the score's own dynamics, which always apply. */
+export interface DynamicsDoc {
+  voices: VoiceRule[];
+  marks?: DynamicMarkGesture[];
+  hairpins?: HairpinGesture[];
+  pedal?: PedalSpan[];
+  /** How far ahead a leading voice sounds, in milliseconds. */
+  leadMs?: number;
+}
+
 export interface PerformanceDoc {
   version: 2;
   score?: { name: string; sha256: string };
@@ -84,6 +163,7 @@ export interface PerformanceDoc {
   /** Keyed by part (MIDI track) index. */
   parts: Record<string, PartSetting>;
   gestures: Gesture[];
+  dynamics?: DynamicsDoc;
 }
 
 export function emptyDoc(): PerformanceDoc {

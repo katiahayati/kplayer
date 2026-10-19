@@ -12,6 +12,7 @@ interface Props {
   bpmChange?: number;
   status?: string;
   expressive: boolean;
+  dynamics: boolean;
   tempoFactor: number;
   parts: ScorePart[];
   partSettings: Record<string, PartSetting>;
@@ -24,6 +25,7 @@ interface Props {
   onExportMidi: () => void;
   onPlayPause: () => void;
   onExpressive: (on: boolean) => void;
+  onDynamics: (on: boolean) => void;
   onTempoFactor: (f: number) => void;
   onPart: (index: number, s: PartSetting) => void;
   onStopLoop: () => void;
@@ -92,6 +94,10 @@ export function Transport(p: Props) {
           <label className="toggle" title="Compare with and without your phrasing (E)">
             <input type="checkbox" checked={p.expressive} onChange={(e) => p.onExpressive(e.target.checked)} />
             Expressive
+          </label>
+          <label className="toggle" title="Compare with and without dynamics: written ones and your voicing (D)">
+            <input type="checkbox" checked={p.dynamics} onChange={(e) => p.onDynamics(e.target.checked)} />
+            Dynamics
           </label>
           <label className="tempo">
             Tempo

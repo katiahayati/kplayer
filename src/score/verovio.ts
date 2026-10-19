@@ -6,6 +6,7 @@ import type { VerovioToolkit } from 'verovio/esm';
 import { buildScoreIndex, type ScoreIndex, type Span, type TimemapEntry } from '../perf/anchors';
 import { parseScoreMidi, type ScoreEvents } from '../perf/render';
 import { findBreathMarks, staffOfElements, type WrittenBreath } from './breathMarks';
+import { attachNoteInfo, placeMarks, readMei, type DynamicMark, type HairpinMark } from './mei';
 import { expandTremolos, findTremolos } from './tremolos';
 
 export interface RenderedScore {
@@ -19,6 +20,9 @@ export interface RenderedScore {
   staffSpans: Map<string, Span[]>;
   /** Breath marks written in the score, anchored after the note each follows. */
   breathMarks: WrittenBreath[];
+  /** Written dynamics and hairpins, placed in the played score. */
+  dynamics: DynamicMark[];
+  hairpins: HairpinMark[];
 }
 
 export interface LoadedScore extends RenderedScore {
@@ -80,8 +84,11 @@ export function renderLoaded(tk: VerovioToolkit, { tremolos: expand = true } = {
     return attrs.get(id)!;
   };
   const index = buildScoreIndex(timemap, (id) => attrOf(id).n ?? '', midiEvents.endQ);
+  const mei = tk.getMEI();
+  const content = readMei(mei);
+  for (const part of midiEvents.parts) attachNoteInfo(part.notes, content.notes, (id) => index.spans.get(id) ?? []);
   // Verovio's MIDI drops fingered tremolos; put them back.
-  const tremolos = expand ? findTremolos(tk.getMEI()) : [];
+  const tremolos = expand ? findTremolos(mei) : [];
   const events = tremolos.length
     ? expandTremolos(midiEvents, tremolos, (id) => tk.getMIDIValuesForElement(id).pitch, (id) => index.spans.get(id) ?? [])
     : midiEvents;
@@ -95,7 +102,7 @@ export function renderLoaded(tk: VerovioToolkit, { tremolos: expand = true } = {
     if (!staffSpans.has(staff)) staffSpans.set(staff, []);
     staffSpans.get(staff)!.push(...spans);
   }
-  return { pages, timemap, index, events, staffOf, staffSpans, breathMarks: findBreathMarks(docs, index, attrOf) };
+  return { pages, timemap, index, events, staffOf, staffSpans, breathMarks: findBreathMarks(docs, index, attrOf), ...placeMarks(index, content) };
 }
 
 function base64ToBytes(b64: string): Uint8Array {

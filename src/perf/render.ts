@@ -14,6 +14,15 @@ export interface ScoreNote {
   velocity: number;
   qOn: number;
   qOff: number;
+  /** Staff number, counting every part's staves from 1 (the MIDI track + 1). */
+  staff?: number;
+  /** The score note this plays (the first of a tie) and its voice (MEI layer); absent if it couldn't be matched. */
+  id?: string;
+  layer?: number;
+  /** One of the rapid alternating notes a fingered tremolo is played as. */
+  tremolo?: boolean;
+  /** Sound this many seconds ahead of the beat (a melody brought out). */
+  leadSec?: number;
 }
 
 export interface ScoreControl {
@@ -75,7 +84,7 @@ export function parseScoreMidi(bytes: ArrayLike<number> | ArrayBuffer): ScoreEve
     }
     part.tracks.push(track);
     for (const n of t.notes) {
-      const note = { midi: n.midi, velocity: n.velocity, qOn: n.ticks / ppq, qOff: (n.ticks + n.durationTicks) / ppq };
+      const note = { midi: n.midi, velocity: n.velocity, qOn: n.ticks / ppq, qOff: (n.ticks + n.durationTicks) / ppq, staff: track + 1 };
       part.notes.push(note);
       endQ = Math.max(endQ, note.qOff);
     }
@@ -113,7 +122,7 @@ export function renderPerformanceMidi(score: ScoreEvents, map: TimeMap, opts: Re
 
     const notes = loop ? part.notes.filter((n) => n.qOn >= loop.q0 - 1e-9 && n.qOn < loop.q1 - 1e-9) : part.notes;
     const rendered = notes.map((n) => {
-      const on = toTicks(n.qOn);
+      const on = Math.max(0, toTicks(n.qOn) - Math.round((n.leadSec ?? 0) * ticksPerSec));
       // In a loop, end every note just before the loop point so nothing hangs over the jump.
       const off = Math.min(toTicks(loop ? Math.min(n.qOff, loop.q1) : n.qOff), loopEnd - 1);
       return { midi: n.midi, on, off: Math.max(off, on + 1), velocity: n.velocity };
