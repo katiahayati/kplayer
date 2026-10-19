@@ -4,6 +4,10 @@ public/soundfonts/*.sf2
 public/soundfonts/*.sf3
 *.local
 
-# Your own scores in the project root (fixtures/ is tracked)
+# Your own scores and recordings in the project root (fixtures/ is tracked)
 /*.mxl
 /*.musicxml
+/*.webm
+/*.mp3
+/*.m4a
+/*.wav

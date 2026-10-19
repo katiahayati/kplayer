@@ -13,21 +13,17 @@ export interface WrittenBreath {
   staff?: string;
 }
 
-/** Base ID of every note and rest → its staff number, plus which of them are rests. */
-export function staffOfElements(docs: Document[], attrOf: AttrOf): { staffOf: Map<string, string>; rests: Set<string> } {
+/** Base ID of every note and rest → its staff number. */
+export function staffOfElements(docs: Document[], attrOf: AttrOf): Map<string, string> {
   const staffOf = new Map<string, string>();
-  const rests = new Set<string>();
   for (const doc of docs) {
     for (const staff of doc.querySelectorAll('g.staff')) {
       const n = attrOf(staff.id).n;
       if (!n) continue;
-      for (const el of staff.querySelectorAll('g.note, g.rest, g.mRest')) {
-        staffOf.set(baseId(el.id), n);
-        if (!el.classList.contains('note')) rests.add(baseId(el.id));
-      }
+      for (const el of staff.querySelectorAll('g.note, g.rest, g.mRest')) staffOf.set(baseId(el.id), n);
     }
   }
-  return { staffOf, rests };
+  return staffOf;
 }
 
 export function findBreathMarks(docs: Document[], index: ScoreIndex, attrOf: AttrOf): WrittenBreath[] {

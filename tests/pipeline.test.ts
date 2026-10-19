@@ -8,7 +8,7 @@ import { Window } from 'happy-dom';
 import createVerovioModule from 'verovio/wasm';
 import { VerovioToolkit } from 'verovio/esm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { noteBefore, resolveAnchor } from '../src/perf/anchors';
+import { breathWindow, resolveAnchor } from '../src/perf/anchors';
 import { compileGestures } from '../src/perf/compile';
 import { renderPerformanceMidi } from '../src/perf/render';
 import { buildTimeMap } from '../src/perf/timeline';
@@ -32,7 +32,7 @@ const mapFor = (gestures: Gesture[]) =>
     gestures: compileGestures(
       gestures,
       (a) => resolveAnchor(score.index, a),
-      (q, staff) => noteBefore(score.staffSpans, q, staff),
+      (q, staff) => breathWindow(score.staffSpans, q, staff),
     ),
   });
 
@@ -70,7 +70,7 @@ describe('time map against Verovio', () => {
 });
 
 describe('performance MIDI', () => {
-  it('a breath holds only the note before it longer, and never shortens a note', () => {
+  it('a breath broadens only from the note before to the note after, and never shortens a note', () => {
     const plain = perform([]);
     const breathed = perform([breath(score.breathMarks[0].at)]);
     expect(breathed.length).toBe(plain.length);
@@ -78,31 +78,32 @@ describe('performance MIDI', () => {
     expect(end(breathed) - end(plain)).toBeCloseTo(0.3, 2);
     breathed.forEach((n, i) => expect(n.off - n.on).toBeGreaterThanOrEqual(plain[i].off - plain[i].on - 0.002));
 
-    // The voice's D (q 5–6) starts on time and lasts 300 ms longer; the next note (q 6) comes in 300 ms later.
+    // Breath after the voice's D (q 5–6), before the C (q 6–8): only that span broadens.
     const voice = (ns: typeof plain, i: number) => ns.filter((n) => n.track === 0)[i];
-    expect(voice(breathed, 3).on).toBeCloseTo(voice(plain, 3).on, 3);
-    expect(voice(breathed, 3).off - voice(breathed, 3).on - (voice(plain, 3).off - voice(plain, 3).on)).toBeCloseTo(0.3, 2);
-    expect(voice(breathed, 4).on - voice(plain, 4).on).toBeCloseTo(0.3, 2);
-    // Every voice note before the D is untouched.
-    for (const i of [0, 1, 2]) expect(voice(breathed, i).on).toBeCloseTo(voice(plain, i).on, 3);
+    for (const i of [0, 1, 2, 3]) expect(voice(breathed, i).on).toBeCloseTo(voice(plain, i).on, 3);
+    const cLate = voice(breathed, 4).on - voice(plain, 4).on;
+    expect(cLate).toBeGreaterThan(0.05);
+    expect(cLate).toBeLessThan(0.3);
+    expect(voice(breathed, 5).on - voice(plain, 5).on).toBeCloseTo(0.3, 2);
 
-    // The piano chord of bar 2 (held across the breath at q = 6) sustains 300 ms longer.
+    // The piano chord of bar 2 (held across the breath) sustains 300 ms longer.
     const chord = (ns: typeof plain) => ns.find((n) => n.track === 1 && n.midi === 65)!;
     expect(chord(breathed).off - chord(breathed).on - (chord(plain).off - chord(plain).on)).toBeCloseTo(0.3, 2);
   });
 
-  it('a breath after a tied note stretches the whole tie, not just its last notehead', () => {
+  it('a breath after a tied note broadens only its last notehead, not the whole tie', () => {
+    // Voice E5 is tied from bar 1 (q 2–4) into bar 2 (q 4–5); breathe after it, before the D (q 5–6).
+    const b = breath({ measureIndex: 1, offsetQ: 1 });
+    const plainMap = mapFor([]);
+    const map = mapFor([b]);
+    expect(map.T(4)).toBeCloseTo(plainMap.T(4), 9);
+    expect(map.T(6) - plainMap.T(6)).toBeCloseTo(0.3, 6);
     const plain = perform([]);
-    // Voice E5 is tied from bar 1 (q 2) into bar 2 (to q 5); breathe after it.
-    const breathed = perform([breath({ measureIndex: 1, offsetQ: 1 })]);
+    const breathed = perform([b]);
     const voice = (ns: typeof plain, i: number) => ns.filter((n) => n.track === 0)[i];
     expect(voice(plain, 2).midi).toBe(76);
     expect(voice(breathed, 2).on).toBeCloseTo(voice(plain, 2).on, 3);
-    expect(voice(breathed, 2).off - voice(breathed, 2).on - (voice(plain, 2).off - voice(plain, 2).on)).toBeCloseTo(0.3, 2);
-    expect(voice(breathed, 3).on - voice(plain, 3).on).toBeCloseTo(0.3, 2);
-    // Spread over the 3 tied beats, not crammed into the last one.
-    const map = mapFor([breath({ measureIndex: 1, offsetQ: 1 })]);
-    expect(map.breaths[0].minRatio).toBeCloseTo(2.5 / 2.8, 2);
+    expect(voice(breathed, 4).on - voice(plain, 4).on).toBeCloseTo(0.3, 2);
   });
 
   it('a breath in a repeated bar applies on both passes', () => {

@@ -44,11 +44,12 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
       const bpm = map.bpmAt(q);
       pts.push({ q, bpm, base: bpm / map.ratioAt(q) });
     }
-    // Draw each breath's edges crisply, even when its note falls between samples.
+    // Make sure each breath's slowest point is drawn even when its short window falls between samples.
     for (const g of timing) {
       if (g.kind !== 'breath') continue;
-      const e = 1e-6;
-      for (const q of [g.start - e, g.start + e, g.q - e, g.q + e]) pts.push({ q, bpm: map.bpmAt(q), base: map.bpmAt(q) / map.ratioAt(q) });
+      for (const q of [g.start, (g.start + g.q) / 2, g.q, (g.q + g.end) / 2, g.end]) {
+        pts.push({ q, bpm: map.bpmAt(q), base: map.bpmAt(q) / map.ratioAt(q) });
+      }
     }
     pts.sort((a, b) => a.q - b.q);
     const all = pts.flatMap((p) => [p.bpm, p.base]);
@@ -66,7 +67,7 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
 
   const bands = timing.map((g, i) => {
     const [lo, hi] =
-      g.kind === 'breath' ? [g.start, g.q] : g.kind === 'shape' ? [g.start, g.end] : [g.q0, g.q1];
+      g.kind === 'breath' || g.kind === 'shape' ? [g.start, g.end] : [g.q0, g.q1];
     const cls = g.kind === 'ramp' ? (g.ratio < 1 ? 'slower' : 'faster') : g.kind === 'shape' ? (g.ratio < 1 ? 'broaden' : 'push') : g.kind;
     return { key: `${g.id}:${i}`, id: g.id, lo, hi, cls, breathQ: g.kind === 'breath' ? g.q : undefined };
   });

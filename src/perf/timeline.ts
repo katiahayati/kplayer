@@ -6,9 +6,9 @@
 // gestures in log-tempo space. There are no pauses: every note-on and note-off
 // maps through the same T, so notes only ever stretch or compress.
 //
-// Sections (ramps, a tempos, shapes) are smooth. A breath is deliberately
-// local: it slows only the note before the breath, by a constant amount, so
-// the music is in tempo right up to that note and from the next one on.
+// Every gesture is smooth. A breath is a small, local broaden: it eases down
+// through the note before the breath, is slowest at the breath, and eases back
+// up through the note after, so everything outside those two notes is in tempo.
 
 import { bumpShape, rampShape } from './curves';
 
@@ -26,14 +26,14 @@ export type TimingGesture =
   /** Eases to `ratio` × tempo at `peak`, holds it until `hold`, then eases back by `end` (broaden / push forward). */
   | { kind: 'shape'; id: string; start: number; peak: number; hold: number; end: number; ratio: number }
   /**
-   * Holds the note before a breath at q `extraSec` longer: the span [start, q]
-   * (from that note's onset to the breath) is slowed evenly; nothing else is.
+   * Broadens [start, end] (onset of the note before the breath to the end of the
+   * note after) so it takes `extraSec` longer, slowest exactly at the breath point q.
    */
-  | { kind: 'breath'; id: string; start: number; q: number; extraSec: number };
+  | { kind: 'breath'; id: string; start: number; q: number; end: number; extraSec: number };
 
 export interface BreathResult {
   id: string;
-  /** Tempo ratio while the note before the breath sounds (e.g. 0.7 = 70% of the surrounding tempo). */
+  /** Tempo ratio at the breath point (e.g. 0.7 = 70% of the surrounding tempo). */
   minRatio: number;
   /** True when the requested time couldn't fit without going below MIN_BREATH_RATIO. */
   clamped: boolean;
@@ -62,7 +62,7 @@ export interface TimeMapOptions {
   step?: number;
 }
 
-/** A breath never slows its note below this fraction of the surrounding tempo (4× as long). */
+/** A breath never slows the music below this fraction of the surrounding tempo. */
 export const MIN_BREATH_RATIO = 0.25;
 
 const DEFAULT_BPM = 120;
@@ -92,12 +92,8 @@ export function buildTimeMap(opts: TimeMapOptions): TimeMap {
     }
     return tempos[lo].bpm * factor;
   };
-  // Where the tempo may jump: written tempo changes and the edges of breaths.
-  // Integration intervals never straddle these.
-  const breakpoints = [
-    ...tempos.map((t) => t.q),
-    ...gestures.flatMap((g) => (g.kind === 'breath' ? [g.start, g.q] : [])),
-  ].filter((q) => q > 0 && q < endQ);
+  // Where the tempo may jump: written tempo changes. Integration intervals never straddle these.
+  const breakpoints = tempos.map((t) => t.q).filter((q) => q > 0 && q < endQ);
 
   const terms: Term[] = [];
   const logOffset = (q: number): number => {
@@ -122,29 +118,42 @@ export function buildTimeMap(opts: TimeMapOptions): TimeMap {
   }
 
   // Breaths last: each is solved against everything already on the curve
-  // (including earlier breaths), so their extra times add up exactly. Slowing
-  // the span evenly by e^k makes it take e^k times as long, so
-  // k = ln(1 + extra / current duration of the span).
+  // (including earlier breaths), so their extra times add up exactly. The depth
+  // k of the dip is found by bisection so the window takes extraSec longer.
   const breaths: BreathResult[] = [];
   const breathGestures = gestures
     .filter((g): g is Extract<TimingGesture, { kind: 'breath' }> => g.kind === 'breath')
     .sort((a, b) => a.q - b.q);
   for (const g of breathGestures) {
-    const lo = Math.max(g.start, 0);
-    const hi = Math.min(g.q, endQ);
-    const nodes = simpsonNodes(lo, hi, step / 4, breakpoints);
-    let span = 0;
-    nodes.q.forEach((q, i) => (span += (nodes.w[i] * 60) / (tempoAt(q) * Math.exp(logOffset(q)))));
+    const nodes = simpsonNodes(Math.max(g.start, 0), Math.min(g.end, endQ), step / 4, breakpoints);
+    const base = nodes.q.map((q, i) => (nodes.w[i] * 60) / (tempoAt(q) * Math.exp(logOffset(q))));
+    const shape = nodes.q.map((q) => bumpShape(q, g.start, g.q, g.q, g.end));
+    const added = (k: number) => base.reduce((sum, b, i) => sum + b * Math.expm1(k * shape[i]), 0);
 
     const kMax = -Math.log(MIN_BREATH_RATIO);
-    const want = span > 0 && g.extraSec > 0 ? Math.log1p(g.extraSec / span) : 0;
-    const k = Math.min(want, kMax);
-    breaths.push({ id: g.id, minRatio: Math.exp(-k), clamped: want > kMax, addedSec: span * Math.expm1(k) });
-    terms.push({ lo: g.start, hi: g.q, tail: 0, at: () => -k });
+    let k = 0;
+    let clamped = false;
+    if (g.extraSec > 0 && base.length) {
+      if (added(kMax) <= g.extraSec) {
+        k = kMax;
+        clamped = true;
+      } else {
+        let lo = 0;
+        let hi = kMax;
+        for (let i = 0; i < 60; i++) {
+          const mid = (lo + hi) / 2;
+          if (added(mid) < g.extraSec) lo = mid;
+          else hi = mid;
+        }
+        k = (lo + hi) / 2;
+      }
+    }
+    breaths.push({ id: g.id, minRatio: Math.exp(-k), clamped, addedSec: added(k) });
+    terms.push({ lo: g.start, hi: g.end, tail: 0, at: (q) => -k * bumpShape(q, g.start, g.q, g.q, g.end) });
   }
 
-  // Cumulative time table on a grid that includes every breakpoint, so B is
-  // constant inside each interval and breaths start and end on grid points.
+  // Cumulative time table on a grid that includes every written tempo change,
+  // so B is constant inside each interval.
   const grid = buildGrid(endQ, step, breakpoints);
   const n = grid.length;
   /** Simpson's rule over [a, b] inside one grid interval, sampling just inside its ends. */

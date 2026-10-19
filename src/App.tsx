@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Player, type SoundBankSource } from './audio/player';
-import { anchorFor, loopAround, nearestSpan, noteBefore, playedMeasureAt, resolveAnchor } from './perf/anchors';
+import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
 import { BREATH_PRESETS, DEFAULT_BREATH_PRESET, SECTION_DEFAULTS } from './perf/presets';
 import { renderPerformanceMidi } from './perf/render';
@@ -54,7 +54,7 @@ export default function App() {
         ? compileGestures(
             doc.gestures,
             (a) => resolveAnchor(score.index, a),
-            (q, staff) => noteBefore(score.staffSpans, q, staff),
+            (q, staff) => breathWindow(score.staffSpans, q, staff),
           )
         : [],
     [score, doc.gestures],
@@ -516,7 +516,7 @@ function findBreath(gestures: Gesture[], at: Anchor): Gesture | undefined {
 }
 
 function extent(g: TimingGesture): [number, number] {
-  if (g.kind === 'breath') return [g.start, g.q];
+  if (g.kind === 'breath') return [g.start, g.end];
   if (g.kind === 'shape') return [g.start, g.end];
   return [g.q0, g.q1];
 }

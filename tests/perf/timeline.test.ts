@@ -119,36 +119,43 @@ describe('shapes with a held peak', () => {
 });
 
 describe('breaths', () => {
-  /** A breath at q after a note that started at `start`. */
-  const breath = (q: number, extraSec: number, start = q - 1): TimingGesture => ({ kind: 'breath', id: `b${q}`, start, q, extraSec });
+  /** A breath at q, after a note starting at `start` and before a note ending at `end`. */
+  const breath = (q: number, extraSec: number, start = q - 0.5, end = q + 0.5): TimingGesture => ({
+    kind: 'breath',
+    id: `b${q}`,
+    start,
+    q,
+    end,
+    extraSec,
+  });
 
-  it('holds the note before the breath exactly the requested time longer', () => {
+  it('adds exactly the requested time, only between the notes either side', () => {
     const plain = flat(72, 48);
     const map = flat(72, 48, [breath(16, 0.3)]);
     expect(map.duration - plain.duration).toBeCloseTo(0.3, 6);
-    expect(map.T(16) - map.T(15) - (plain.T(16) - plain.T(15))).toBeCloseTo(0.3, 6);
-    // Everything from the next note on is shifted by exactly the extra time...
-    for (const q of [16, 16.5, 17, 20, 47]) expect(map.T(q) - plain.T(q)).toBeCloseTo(0.3, 6);
-    // ...and nothing up to the note before the breath moves.
-    for (const q of [0, 10, 14.5, 15]) expect(map.T(q)).toBeCloseTo(plain.T(q), 9);
+    // Everything from the end of the note after is shifted by exactly the extra time...
+    for (const q of [16.5, 17, 20, 47]) expect(map.T(q) - plain.T(q)).toBeCloseTo(0.3, 6);
+    // ...and nothing up to the start of the note before moves.
+    for (const q of [0, 10, 15, 15.5]) expect(map.T(q)).toBeCloseTo(plain.T(q), 9);
     expect(map.breaths[0]).toMatchObject({ id: 'b16', clamped: false });
     expect(map.breaths[0].addedSec).toBeCloseTo(0.3, 9);
   });
 
-  it('slows evenly during that note only: in tempo before it and from the next note', () => {
-    const map = flat(72, 48, [breath(16, 0.3, 14.5)]);
-    for (let q = 0; q <= 48; q += 1 / 64) {
-      const inside = q > 14.5 + 1e-9 && q < 16 - 1e-9;
-      if (inside) expect(map.bpmAt(q)).toBeCloseTo(72 * map.breaths[0].minRatio, 9);
-      else if (q < 14.5 - 1e-9 || q > 16 + 1e-9) expect(map.bpmAt(q)).toBeCloseTo(72, 9);
-    }
-    // 1.5 quarters at 72 BPM = 1.25 s, held 0.3 s longer.
-    expect(map.breaths[0].minRatio).toBeCloseTo(1.25 / 1.55, 9);
+  it('is in tempo outside its notes, slowest at the breath point, and smooth', () => {
+    const map = flat(72, 48, [breath(16, 0.3, 15.5, 16.5)]);
+    for (const q of [0, 15.4, 15.5, 16.5, 16.6, 30]) expect(map.bpmAt(q)).toBeCloseTo(72, 9);
+    let minQ = 0;
+    let min = Infinity;
+    for (let q = 15; q <= 17; q += 1 / 512) if (map.bpmAt(q) < min) [min, minQ] = [map.bpmAt(q), q];
+    expect(minQ).toBeCloseTo(16, 2);
+    expect(map.bpmAt(16) / 72).toBeCloseTo(map.breaths[0].minRatio, 9);
+    // No jumps: the curve eases down and back up.
+    expect(roughness(map, 15, 17, 1 / 4096).maxStep).toBeLessThan(0.5);
   });
 
   it('never shortens any note: every duration is at least as long as without the breath', () => {
     const plain = flat(96, 32);
-    const map = flat(96, 32, [breath(12, 0.45, 10)]);
+    const map = flat(96, 32, [breath(12, 0.45, 11.5, 13)]);
     for (let qOn = 0; qOn < 30; qOn += 0.25) {
       for (const len of [0.25, 0.5, 1, 2, 4]) {
         const with_ = map.T(qOn + len) - map.T(qOn);
@@ -167,17 +174,24 @@ describe('breaths', () => {
     expect(map.duration - shaped.duration).toBeCloseTo(0.55, 6);
   });
 
-  it('clamps when the note is too short for the requested time', () => {
-    const map = flat(160, 16, [breath(8, 2, 7.5)]);
+  it('inside an accelerando, the music is back at the accelerando tempo after the note after', () => {
+    const ramp: TimingGesture = { kind: 'ramp', id: 'r', q0: 4, q1: 12, ratio: 1.12 };
+    const map = flat(60, 32, [ramp, breath(8, 0.3, 7.5, 8.5)]);
+    const plain = flat(60, 32, [ramp]);
+    for (const q of [6, 7.5, 8.5, 9, 10, 11]) expect(map.bpmAt(q)).toBeCloseTo(plain.bpmAt(q), 9);
+  });
+
+  it('clamps when the notes are too short for the requested time', () => {
+    const map = flat(160, 16, [breath(8, 2, 7.75, 8.25)]);
     expect(map.breaths[0].clamped).toBe(true);
     expect(map.breaths[0].minRatio).toBeCloseTo(MIN_BREATH_RATIO, 9);
     expect(map.breaths[0].addedSec).toBeLessThan(2);
   });
 
-  it('works across a written tempo change inside the note', () => {
-    const tempos = [{ q: 0, bpm: 60 }, { q: 7.5, bpm: 90 }];
+  it('works across a written tempo change inside the window', () => {
+    const tempos = [{ q: 0, bpm: 60 }, { q: 8, bpm: 90 }];
     const plain = buildTimeMap({ tempos, endQ: 16 });
-    const map = buildTimeMap({ tempos, endQ: 16, gestures: [breath(8, 0.25, 7)] });
+    const map = buildTimeMap({ tempos, endQ: 16, gestures: [breath(8, 0.25, 7, 9)] });
     expect(map.duration - plain.duration).toBeCloseTo(0.25, 6);
   });
 });

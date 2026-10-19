@@ -54,7 +54,7 @@ describe('app', () => {
     expect(text()).toContain('Breathe after');
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b' })));
     expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(2);
-    expect(text()).toMatch(/That note is held 300 ms longer \(\d+% tempo while it sounds\)/);
+    expect(text()).toMatch(/Adds 300 ms; slowest point \d+% of the tempo/);
 
     // Shift-click a range and broaden it.
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));

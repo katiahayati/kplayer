@@ -122,12 +122,15 @@ function BreathFields({ g, result, set }: { g: BreathGesture; result?: BreathRes
         })}
       </div>
       <Slider label="Extra time" value={g.extraMs} min={0} max={1500} step={10} unit=" ms" onChange={(v) => set({ extraMs: v }, 'extraMs')} />
-      <p className="muted">Only the note before the breath is held longer; the next note comes in on tempo.</p>
+      <p className="muted">
+        Broadens from the note before the breath to the note after it, slowest at the breath. Everything else stays in
+        tempo.
+      </p>
       {result && (
         <p className={result.clamped ? 'warn' : 'muted'}>
           {result.clamped
-            ? `Capped at ${Math.round(result.addedSec * 1000)} ms: that note can stretch to at most 4× its length.`
-            : `That note is held ${Math.round(result.addedSec * 1000)} ms longer (${Math.round(result.minRatio * 100)}% tempo while it sounds).`}
+            ? `Capped at ${Math.round(result.addedSec * 1000)} ms: those two notes can only stretch so far.`
+            : `Adds ${Math.round(result.addedSec * 1000)} ms; slowest point ${Math.round(result.minRatio * 100)}% of the tempo.`}
         </p>
       )}
     </>

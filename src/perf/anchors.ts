@@ -142,21 +142,27 @@ export function loopAround(index: ScoreIndex, q0: number, q1: number): { q0: num
 }
 
 /**
- * Onset of the note a breath at q follows: the latest-starting note or rest in
- * `staff` that sounds into q (for a tied note, the start of the tie). Without a
- * staff, every staff is considered.
+ * The window a breath at q broadens: from the onset of the note before it to
+ * the end of the note after it, in `staff` (every staff when it's unknown).
+ * Notes are noteheads, so a tied note before the breath counts only its last
+ * notehead. Without a note after (the end of the piece), the window is
+ * mirrored around the breath.
  */
-export function noteBefore(staffSpans: Map<string, Span[]>, q: number, staff?: string): number | undefined {
-  // MIDI notes end a tick (1/120 quarter) before their written end.
-  const eps = 0.02;
+export function breathWindow(staffSpans: Map<string, Span[]>, q: number, staff?: string): { start: number; end: number } | undefined {
+  const eps = 1e-6;
   const lists = staff !== undefined && staffSpans.has(staff) ? [staffSpans.get(staff)!] : [...staffSpans.values()];
-  let best: number | undefined;
+  let start: number | undefined;
+  let after: Span | undefined;
   for (const list of lists) {
     for (const s of list) {
-      if (s.qOn < q - eps && s.qOff > q - eps && (best === undefined || s.qOn > best)) best = s.qOn;
+      // The note before: the latest-starting one that sounds into q.
+      if (s.qOn < q - eps && s.qOff > q - eps && (start === undefined || s.qOn > start)) start = s.qOn;
+      // The note after: the first one starting at or after q (the shorter one if several start together).
+      if (s.qOn >= q - eps && (!after || s.qOn < after.qOn - eps || (Math.abs(s.qOn - after.qOn) <= eps && s.qOff < after.qOff))) after = s;
     }
   }
-  return best;
+  if (start === undefined) return undefined;
+  return { start, end: after ? after.qOff : q + (q - start) };
 }
 
 /** The pass of a note closest to a reference position (e.g. the playhead). */

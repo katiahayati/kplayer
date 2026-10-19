@@ -18,7 +18,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 
 | Do this | To |
 |---|---|
-| Click a note, press **B** | Breathe after it: that note is held a little longer, everyone waits, and the next note comes in on tempo |
+| Click a note, press **B** | Breathe after it: a small broaden from that note to the next one, slowest at the breath |
 | Click a note, shift-click another | Select a section, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
 | Select a breath or section, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
@@ -27,9 +27,10 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | Click the tempo lane | Seek; select the gesture under the cursor |
 | **Ctrl+Z** / **Ctrl+Shift+Z** | Undo / redo |
 
-- A breath is set by **extra time** (e.g. 300 ms). Only the note before the breath stretches. Anything the piano
-  plays under that note stretches evenly with it, and anything held across it sustains. The music is in tempo right
-  up to that note and from the next note on. A note can stretch to at most 4× its length; past that, kplayer says so.
+- A breath is set by **extra time** (e.g. 300 ms). The tempo eases down through the note before the breath, is
+  slowest at the breath, and eases back up through the note after it. Everything outside those two notes stays in
+  tempo, and anything held across the breath sustains. "Note" means notehead: after a tied note, only its last
+  notehead broadens. If the two notes are too short for the time you ask for, kplayer says so.
 - Clicking near a note or rest selects it, so you don't have to hit the inked part of a hollow notehead or a thin
   rest.
 - **Slow down** / **Speed up** hold their new tempo until an **A tempo**. **Broaden** and **Push forward** return by
@@ -48,8 +49,8 @@ Every note has a score position *q* (in quarter notes). Performance time is
 T(q) = ∫ 60 / (B(q) · e^L(q)) dq
 
 where B is the written tempo and L sums every gesture in log-tempo space. Sections are built from smootherstep, so
-the tempo and its rate of change stay continuous. A breath is a constant slowdown over just the note before it,
-sized so that note takes exactly the extra time longer. There are no pauses: every note-on and note-off goes through
+the tempo and its rate of change stay continuous. A breath is a smooth dip from the note before it to the note after,
+sized so those notes take exactly the extra time longer. There are no pauses: every note-on and note-off goes through
 the same T, so notes can only stretch with the curve, never get cut short. The timed performance is written as a
 fixed-tempo MIDI file and played by SpessaSynth. Verovio renders the score and gives each note its *q*.
 

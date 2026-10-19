@@ -1,6 +1,6 @@
 // Turns the performance document's gestures (anchored to measures) into timing
 // gestures (anchored to score positions). Sections get minimum ease lengths so
-// they can't turn into abrupt tempo jumps; a breath spans the note before it.
+// they can't turn into abrupt tempo jumps; a breath spans the notes either side of it.
 // With repeats, a gesture in a repeated measure applies on every pass.
 
 import type { TimingGesture } from './timeline';
@@ -8,21 +8,21 @@ import type { Anchor, Gesture } from './types';
 
 /** All score positions an anchor refers to, in playback order. */
 export type AnchorResolver = (a: Anchor) => number[];
-/** Onset of the note a breath at q follows (see `noteBefore`). */
-export type NoteBeforeResolver = (q: number, staff?: string) => number | undefined;
+/** The window a breath at q broadens (see `breathWindow`). */
+export type BreathWindowResolver = (q: number, staff?: string) => { start: number; end: number } | undefined;
 
 /** Shortest ramp, a tempo, or shape rise/fall, in quarter notes. */
 export const MIN_SECTION_EASE_Q = 0.5;
 
-export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, noteBefore: NoteBeforeResolver): TimingGesture[] {
+export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, breathWindow: BreathWindowResolver): TimingGesture[] {
   const out: TimingGesture[] = [];
   for (const g of gestures) {
     if (g.enabled === false) continue;
     if (g.type === 'breath') {
       for (const q of resolve(g.at)) {
-        const start = noteBefore(q, g.staff);
-        if (start === undefined || start >= q) continue;
-        out.push({ kind: 'breath', id: g.id, start, q, extraSec: Math.max(0, g.extraMs) / 1000 });
+        const w = breathWindow(q, g.staff);
+        if (!w || w.start >= q || w.end <= q) continue;
+        out.push({ kind: 'breath', id: g.id, start: w.start, q, end: w.end, extraSec: Math.max(0, g.extraMs) / 1000 });
       }
       continue;
     }
