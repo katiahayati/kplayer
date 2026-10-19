@@ -139,3 +139,7 @@ playback falls back to MuseScore General's piano.
 npm test          # timing engine, the Verovio → MIDI pipeline on fixtures/song.musicxml, and a UI smoke test
 npm run typecheck
 ```
+
+## License
+
+MIT (see `LICENSE`). The sound banks are fetched separately and keep their own licences (above).
