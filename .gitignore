@@ -3,3 +3,7 @@ dist/
 public/soundfonts/*.sf2
 public/soundfonts/*.sf3
 *.local
+
+# Your own scores in the project root (fixtures/ is tracked)
+/*.mxl
+/*.musicxml
