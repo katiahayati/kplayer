@@ -109,8 +109,36 @@ export function partLevels(input: DynamicsInput): Map<number, (q: number) => num
   return out;
 }
 
+/**
+ * Which notes are re-struck: the same staff and voice plays the same pitch at its previous or next onset,
+ * within a beat. By note index.
+ */
+function restruck(part: ScorePart): Set<number> {
+  const out = new Set<number>();
+  const byVoice = new Map<string, number[]>();
+  part.notes.forEach((n, i) => {
+    const k = `${n.staff}|${n.layer}`;
+    byVoice.set(k, [...(byVoice.get(k) ?? []), i]);
+  });
+  for (const idx of byVoice.values()) {
+    // Onsets of this voice, each with its pitches.
+    const onsets: { q: number; notes: number[] }[] = [];
+    for (const i of idx) {
+      const q = part.notes[i].qOn;
+      const last = onsets[onsets.length - 1];
+      if (last && Math.abs(last.q - q) < 0.01) last.notes.push(i);
+      else onsets.push({ q, notes: [i] });
+    }
+    onsets.forEach((o, k) => {
+      const near = [onsets[k - 1], onsets[k + 1]].filter((x) => x && Math.abs(x.q - o.q) <= 1.01);
+      for (const i of o.notes) if (near.some((x) => x.notes.some((j) => part.notes[j].midi === part.notes[i].midi))) out.add(i);
+    });
+  }
+  return out;
+}
+
 /** Which notes each voice rule covers, by part and note index. */
-function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => number[], endQ: number): Set<number> {
+function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => number[], endQ: number, repeats: () => Set<number>): Set<number> {
   const s: NoteSelector = rule.select;
   const members = new Set<number>();
   if (s.part !== undefined && s.part !== part.index) return members;
@@ -127,6 +155,7 @@ function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => 
     if (s.maxPitch !== undefined && n.midi > s.maxPitch) return;
     if (s.minLength !== undefined && n.qOff - n.qOn < s.minLength - 0.01) return;
     if (s.maxLength !== undefined && n.qOff - n.qOn > s.maxLength + 0.01) return;
+    if (s.repeated !== undefined && repeats().has(i) !== s.repeated) return;
     candidates.push(i);
   });
   if (!s.top && !s.bottom) return new Set(candidates);
@@ -221,7 +250,9 @@ export function shapeDynamics(input: DynamicsInput): ScoreEvents {
   const parts = events.parts.map((part) => {
     const level = levels.get(part.index)!;
     const voiceOf = new Map<number, VoiceRule>();
-    for (const rule of rules) for (const i of voiceMembers(rule, part, resolve, events.endQ)) voiceOf.set(i, rule);
+    let repeats: Set<number> | undefined;
+    const lazyRepeats = () => (repeats ??= restruck(part));
+    for (const rule of rules) for (const i of voiceMembers(rule, part, resolve, events.endQ, lazyRepeats)) voiceOf.set(i, rule);
     const notes = part.notes.map((n, i): ScoreNote => {
       const rule = voiceOf.get(i);
       const db = (rule?.gainDb ?? 0) + (rule?.varyDb ? rule.varyDb * noise(part.index, i) : 0);

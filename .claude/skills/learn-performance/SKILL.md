@@ -81,6 +81,15 @@ Use a work folder `analysis/<short-name>/` (git-ignored). `G=.claude/skills/lear
    relative to its median): expect ~8 dB rms off with the written dynamics, ~2 dB after. Check the balance with
    `$G/guard.sh npx tsx scripts/voice-balance.ts score.mxl OUT-dynamics.kplayer.json`: the melody should be on top
    in most bars by 3–6 dB. Things to know:
+   - Read the full score (IMSLP has most public-domain ones; downloads need a human to pass a captcha, so ask
+     the user to save the PDF in the project) before trusting the reduction's layout. A reduction moves lines between
+     hands and voices from bar to bar, and the same notation means different things: in Apollo the "tremolos" were
+     muted cellos (a soft blanket), timpani rolls (pp), and the whole string section at the climaxes (keep them full,
+     but well under the tune). Name voices after the instruments, add bar-range overrides where a line changes hands
+     (later voices win), and check the voices' notes with the Dynamics panel (click a voice) or a quick script.
+   - While reading it, check the reduction's notes: `python3 $G/accidental_clashes.py score.mxl` lists chords that
+     sound a note and its flat at once (a flat forgotten in another octave is a common slip; Apollo bars 32 and 86).
+     Chromatic music has real ones too, so confirm each against the full score and tell the user; don't edit the score.
    - Piano reductions copy dynamics from *some* instruments: the reduction can say pp where the orchestra plays out
      (Apollo bars 8–11, 87–88). Before blaming the stem for vocal leakage, measure the vocals stem too: if the
      singer is silent there, the orchestra really is loud.

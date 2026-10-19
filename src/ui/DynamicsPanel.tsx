@@ -118,6 +118,8 @@ function describe(v: VoiceRule, partNames: string[]): string {
   if (s.tremolo === false) bits.push('no tremolos');
   if (s.minLength !== undefined) bits.push(`notes of ${lengthName(s.minLength)} or longer`);
   if (s.maxLength !== undefined) bits.push(`notes of ${lengthName(s.maxLength)} or shorter`);
+  if (s.repeated === true) bits.push('repeated notes');
+  if (s.repeated === false) bits.push('moving notes');
   if (s.top) bits.push('top note');
   if (s.bottom) bits.push('bottom note');
   if (v.from || v.to) bits.push(`${v.from ? anchorLabel(v.from) : 'start'} – ${v.to ? anchorLabel(v.to) : 'end'}`);

@@ -132,6 +132,15 @@ describe('voicing', () => {
     expect(velocities(shaped, (n) => n.qOn === 4 && n.midi === 74)).toEqual([Math.round(49 * velocityGain(-6))]);
   });
 
+  it('tells re-struck notes (a pulse) from moving ones', () => {
+    // Voice 2 of bar 1 plays E E F# E: the first two E's repeat each other; F# and the last E move.
+    const shaped = shape({ voices: [{ id: 'pulse', name: 'Pulse', select: { layer: [2], repeated: true }, gainDb: -12 }] });
+    const quiet = Math.round(49 * velocityGain(-12));
+    expect(velocities(shaped, (n) => n.layer === 2)).toEqual([quiet, quiet, 49, 49]);
+    const moving = shape({ voices: [{ id: 'line', name: 'Line', select: { layer: [2], repeated: false }, gainDb: -12 }] });
+    expect(velocities(moving, (n) => n.layer === 2)).toEqual([49, 49, quiet, quiet]);
+  });
+
   it('varies repeated notes a little, the same way every time', () => {
     const doc: DynamicsDoc = { voices: [{ id: 'v', name: 'Pulse', select: { layer: [2] }, gainDb: 0, varyDb: 3 }] };
     const a = velocities(shape(doc), (n) => n.layer === 2);

@@ -95,6 +95,11 @@ export interface NoteSelector {
   /** Only notes at least / at most this long, in quarter notes (tied notes count whole): long melody notes vs figuration. */
   minLength?: number;
   maxLength?: number;
+  /**
+   * Only (true) or never (false) re-struck notes: the same voice plays the same pitch at its onset just
+   * before or just after (within a beat). Separates a pulse of repeated chords from moving lines.
+   */
+  repeated?: boolean;
 }
 
 /**
