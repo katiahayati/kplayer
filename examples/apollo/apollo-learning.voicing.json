@@ -1,0 +1,319 @@
+{
+ "about": "Voicing for Gesang der Apollopriesterin (piano reduction), from Strauss's full score: the strings' repeated-chord pulse kept back; the muted cellos' figure (bars 1-26, 40-42) and the timpani rolls (78, 88-99) as a soft blanket; the string tremolo at the climaxes (56-70, 107-113) left full; the top moving line of the right hand (brass fanfares, solo violin, clarinet, cellos' line) brought out and slightly ahead; pedal changed with the harmony. Use Import voicing… in the Dynamics panel.",
+ "dynamics": {
+  "leadMs": 20,
+  "voices": [
+   {
+    "id": "harmony",
+    "name": "Held chords and inner lines",
+    "select": {
+     "part": 1,
+     "minLength": 0.2
+    },
+    "gainDb": -5
+   },
+   {
+    "id": "pulse",
+    "name": "Strings' pulse (repeated chords)",
+    "select": {
+     "part": 1,
+     "repeated": true,
+     "maxLength": 1
+    },
+    "gainDb": -11,
+    "varyDb": 1.5
+   },
+   {
+    "id": "cellos",
+    "name": "Muted cellos' figure",
+    "from": {
+     "measureIndex": 0,
+     "offsetQ": 0,
+     "label": "1"
+    },
+    "to": {
+     "measureIndex": 26,
+     "offsetQ": 0,
+     "label": "27"
+    },
+    "select": {
+     "part": 1,
+     "maxLength": 0.17,
+     "tremolo": false,
+     "repeated": false
+    },
+    "gainDb": -7,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "cellos2",
+    "name": "Muted cellos' figure (pp)",
+    "from": {
+     "measureIndex": 39,
+     "offsetQ": 0,
+     "label": "40"
+    },
+    "to": {
+     "measureIndex": 42,
+     "offsetQ": 0,
+     "label": "43"
+    },
+    "select": {
+     "part": 1,
+     "maxLength": 0.17,
+     "tremolo": false,
+     "repeated": false
+    },
+    "gainDb": -9,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "timp",
+    "name": "Timpani roll",
+    "from": {
+     "measureIndex": 77,
+     "offsetQ": 0,
+     "label": "78"
+    },
+    "to": {
+     "measureIndex": 100,
+     "offsetQ": 0,
+     "label": "101"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "maxLength": 0.13
+    },
+    "gainDb": -12,
+    "varyDb": 2,
+    "jitterMs": 6
+   },
+   {
+    "id": "trem",
+    "name": "String tremolo (climaxes)",
+    "from": {
+     "measureIndex": 55,
+     "offsetQ": 0,
+     "label": "56"
+    },
+    "to": {
+     "measureIndex": 70,
+     "offsetQ": 0,
+     "label": "71"
+    },
+    "select": {
+     "part": 1,
+     "maxLength": 0.13
+    },
+    "gainDb": -12,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "trem2",
+    "name": "String tremolo (final climax)",
+    "from": {
+     "measureIndex": 106,
+     "offsetQ": 0,
+     "label": "107"
+    },
+    "to": {
+     "measureIndex": 112,
+     "offsetQ": 4,
+     "label": "113"
+    },
+    "select": {
+     "part": 1,
+     "maxLength": 0.13
+    },
+    "gainDb": -12,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "bass",
+    "name": "Bass",
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "repeated": false,
+     "minLength": 0.7,
+     "bottom": true
+    },
+    "gainDb": -4
+   },
+   {
+    "id": "melody",
+    "name": "Melody (top line of the right hand)",
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "repeated": false,
+     "minLength": 0.2,
+     "tremolo": false,
+     "top": true
+    },
+    "gainDb": 4,
+    "lead": true
+   },
+   {
+    "id": "trombones",
+    "name": "Trombones' fanfare (left hand)",
+    "from": {
+     "measureIndex": 6,
+     "offsetQ": 0,
+     "label": "7"
+    },
+    "to": {
+     "measureIndex": 7,
+     "offsetQ": 0,
+     "label": "8"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      2
+     ],
+     "layer": [
+      5
+     ],
+     "repeated": false,
+     "minLength": 0.2,
+     "top": true
+    },
+    "gainDb": 4,
+    "lead": true
+   },
+   {
+    "id": "held7",
+    "name": "Horns and trumpets holding (bar 7)",
+    "from": {
+     "measureIndex": 6,
+     "offsetQ": 0,
+     "label": "7"
+    },
+    "to": {
+     "measureIndex": 7,
+     "offsetQ": 0,
+     "label": "8"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "layer": [
+      1
+     ]
+    },
+    "gainDb": -4
+   },
+   {
+    "id": "cellos7",
+    "name": "Muted cellos' figure, in the right hand (bar 7)",
+    "from": {
+     "measureIndex": 6,
+     "offsetQ": 0,
+     "label": "7"
+    },
+    "to": {
+     "measureIndex": 7,
+     "offsetQ": 0,
+     "label": "8"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "layer": [
+      3
+     ],
+     "maxLength": 0.9
+    },
+    "gainDb": -7,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "cellos10",
+    "name": "Muted cellos' figure, in the right hand (bar 10)",
+    "from": {
+     "measureIndex": 9,
+     "offsetQ": 0,
+     "label": "10"
+    },
+    "to": {
+     "measureIndex": 10,
+     "offsetQ": 0,
+     "label": "11"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "layer": [
+      3
+     ],
+     "maxLength": 0.9,
+     "repeated": false
+    },
+    "gainDb": -7,
+    "varyDb": 1.5,
+    "jitterMs": 4
+   },
+   {
+    "id": "clarinet16",
+    "name": "A clarinet, getragen (bar 16)",
+    "from": {
+     "measureIndex": 15,
+     "offsetQ": 0,
+     "label": "16"
+    },
+    "to": {
+     "measureIndex": 16,
+     "offsetQ": 0,
+     "label": "17"
+    },
+    "select": {
+     "part": 1,
+     "staff": [
+      1
+     ],
+     "layer": [
+      2
+     ]
+    },
+    "gainDb": 4,
+    "lead": true
+   }
+  ],
+  "pedal": [
+   {
+    "id": "ped",
+    "from": {
+     "measureIndex": 0,
+     "offsetQ": 0,
+     "label": "1"
+    },
+    "to": {
+     "measureIndex": 112,
+     "offsetQ": 4,
+     "label": "113"
+    },
+    "mode": "harmony",
+    "part": 1
+   }
+  ]
+ }
+}

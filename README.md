@@ -53,6 +53,12 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 - Your work autosaves in the browser for each score. **Export JSON** saves it as a file you can import later.
   **Export MIDI** writes the timed performance for use elsewhere.
 
+## Example
+
+[`examples/apollo`](examples/apollo) has a full song to try: Strauss's *Gesang der Apollopriesterin* as a piano
+reduction, with tempo shaping learned from two recordings (Thielemann/Fleming and Felicity Lott), a voicing taken
+from the full score, and each conductor's dynamic shape.
+
 ## How it works
 
 Every note has a score position *q* (in quarter notes). Performance time is
