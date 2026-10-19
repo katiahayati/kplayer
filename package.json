@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "spike": "node scripts/spike.mjs",
-    "fetch-soundfont": "bash scripts/fetch-soundfont.sh"
+    "fetch-soundfont": "bash scripts/fetch-soundfont.sh",
+    "export-score": "tsx scripts/export-score.ts",
+    "fit-performance": "tsx scripts/fit-performance.ts"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",
@@ -27,6 +29,7 @@
     "@vitejs/plugin-react": "^5.2.0",
     "happy-dom": "^20.14.6",
     "jsdom": "^27.4.0",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "vite": "^8.3.4",
     "vitest": "^4.1.12"

@@ -13,6 +13,9 @@ export type BreathWindowResolver = (q: number, staff?: string) => { start: numbe
 
 /** Shortest ramp, a tempo, or shape rise/fall, in quarter notes. */
 export const MIN_SECTION_EASE_Q = 0.5;
+/** Largest tempo change one section may make: 80% slower, or 4× faster (generous: real performances go far). */
+const MAX_SLOWER = 0.8;
+const MAX_FASTER = 3;
 
 export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, breathWindow: BreathWindowResolver): TimingGesture[] {
   const out: TimingGesture[] = [];
@@ -32,12 +35,12 @@ export function compileGestures(gestures: Gesture[], resolve: AnchorResolver, br
     for (const [q0, end] of pairSpans(resolve(g.from), resolve(g.to))) {
       const q1 = Math.max(end, q0 + MIN_SECTION_EASE_Q);
       if (g.type === 'ramp') {
-        const amount = clamp(g.amount, 0, g.dir === 'slower' ? 0.6 : 1);
+        const amount = clamp(g.amount, 0, g.dir === 'slower' ? MAX_SLOWER : MAX_FASTER);
         out.push({ kind: 'ramp', id: g.id, q0, q1, ratio: g.dir === 'slower' ? 1 - amount : 1 + amount });
       } else if (g.type === 'aTempo') {
         out.push({ kind: 'aTempo', id: g.id, q0, q1 });
       } else {
-        const amount = clamp(g.amount, 0, g.gesture === 'broaden' ? 0.6 : 1);
+        const amount = clamp(g.amount, 0, g.gesture === 'broaden' ? MAX_SLOWER : MAX_FASTER);
         // A picked note (this pass's copy of it, if it's inside the section) wins over the percentage.
         const picked = peaks.find((p) => p >= q0 && p <= q1);
         const peak = clamp(picked ?? q0 + clamp(g.peak, 0, 1) * (q1 - q0), q0 + MIN_SECTION_EASE_Q, Math.max(q1, q0 + MIN_SECTION_EASE_Q));

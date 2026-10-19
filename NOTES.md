@@ -40,6 +40,21 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
   sample data. The Salamander Grand SF2 (1.27 GB, 48 kHz/24-bit, 16 layers) is too big for this; YDP peaks around
   240 MB. Don't decode big banks whole in Node either: on this WSL (~5.8 GB) it ran out of memory.
 
+## Aligning recordings (tools/align_recording.py)
+
+- synctoolbox's multiscale DTW (chroma + DLNCO onset features) aligns an orchestral recording to the piano-reduction
+  score well. Peak memory for a 7-minute song is about 0.7 GB.
+- **Trim silence first.** A recording that starts with 13 s of digital silence otherwise stretches the first bars over it.
+- **Align twice.** Through long held chords there are no onsets to anchor to, and the DTW path falls back to the
+  score's layout tempo, then jumps to catch up: bars come out at exactly the written tempo, followed by a spike.
+  Laying the score out along a smoothed first-pass alignment for a second pass fixes this.
+- **Fitting sections**: copying levels off a smoothed curve drifts (a 13 s drift over 7 minutes), because smootherstep
+  between turning points spends time differently from the real curve. Solving the levels so each section's duration
+  matches the recording (damped Gauss-Newton, levels kept within 15% of the measured shape) fixes it. Breaths are
+  measured against the tempo just around them, not the smoothed curve, which averages them away.
+- Real performances exceed the old per-section limits (Thielemann goes from 40 to 83 BPM within three bars), so
+  sections now allow up to 80% slower or 4× faster.
+
 ## Tooling
 
 - The system npm 10.8.2 hangs or crashes (`edgesOut`) installing vite 8 / vitest 4. Use `npx -y npm@11 install`.

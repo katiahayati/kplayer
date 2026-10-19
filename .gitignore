@@ -11,3 +11,4 @@ public/soundfonts/*.sf3
 /*.mp3
 /*.m4a
 /*.wav
+.venv/

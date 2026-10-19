@@ -57,6 +57,24 @@ fixed-tempo MIDI file and played by SpessaSynth. Verovio renders the score and g
 Code map: `src/perf/` holds the timing engine (pure TypeScript, tested), `src/score/` the Verovio loading and score
 view, `src/audio/` the synth wrapper, and `src/ui/` the panels. See `NOTES.md` for findings about the libraries.
 
+## Learning a performance from a recording
+
+kplayer can listen to a recording of the piece and write a performance file with the performer's tempo shaping:
+their basic tempo, **Speed up** / **Slow down** sections between their tempo turning points, and **breaths** where
+the singer takes extra time at a phrase end. Import the result with **Import…**.
+
+```sh
+python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt   # once
+npm run export-score -- song.mxl > /tmp/song-notes.json
+.venv/bin/python tools/align_recording.py /tmp/song-notes.json recording.webm /tmp/alignment.json
+npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json "Performer"
+```
+
+The aligner ([synctoolbox](https://github.com/meinardmueller/synctoolbox)) lines the recording up with the score
+note by note: any key or tuning difference, and silence at either end, are handled. The fitting step then checks
+the result with kplayer's own timing engine and prints how closely it follows the recording. The score must match
+the recording's music: the same cuts, repeats and notes, though a piano reduction of an orchestral piece works fine.
+
 ## Sounds
 
 - Piano: [YDP Grand Piano](https://freepats.zenvoid.org/Piano/acoustic-grand-piano.html) by FreePats, built from Zenph

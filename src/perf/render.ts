@@ -3,7 +3,8 @@
 // result is written as a "flat-time" MIDI with a single fixed tempo, so the
 // sequencer plays our timing verbatim.
 
-import { Midi } from '@tonejs/midi';
+// Default import: the package is CommonJS, and Node (unlike Vite) can't see its named exports.
+import tonejs from '@tonejs/midi';
 import type { TempoPoint, TimeMap } from './timeline';
 import type { PartSetting } from './types';
 
@@ -52,7 +53,7 @@ const PERF_PPQ = 480;
 const DEFAULT_VOLUME_CC = 100 / 127;
 
 export function parseScoreMidi(bytes: ArrayLike<number> | ArrayBuffer): ScoreEvents {
-  const midi = new Midi(bytes);
+  const midi = new tonejs.Midi(bytes);
   const ppq = midi.header.ppq;
   const tempos = midi.header.tempos.map((t) => ({ q: t.ticks / ppq, bpm: t.bpm }));
   const byChannel = new Map<number, ScorePart>();

@@ -18,5 +18,6 @@ declare module 'verovio/esm' {
     getElementAttr(xmlId: string): Record<string, string>;
     getPageWithElement(xmlId: string): number;
     getLog(): string;
+    getMEI(options?: Record<string, unknown>): string;
   }
 }
