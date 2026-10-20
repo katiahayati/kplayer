@@ -349,7 +349,7 @@ if (process.env.FIT_DEBUG) {
     }
   });
 }
-console.error(`basic tempo ♩ = ${(60 * tempoFactor).toFixed(0)} (written ${written(0)}): ${sectionsOnly.length} sections, ${breathExtra.length} breaths`);
+console.error(`basic tempo ♩ = ${(written(0) * tempoFactor).toFixed(0)} (written ${written(0)}): ${sectionsOnly.length} sections, ${breathExtra.length} breaths`);
 console.error('timing vs the recording, at every note onset:');
 console.error('  ' + report('written tempo only', buildTimeMap({ tempos, endQ })));
 console.error('  ' + report('basic tempo only', buildTimeMap({ tempos, endQ, tempoFactor })));
