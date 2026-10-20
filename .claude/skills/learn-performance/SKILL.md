@@ -98,6 +98,20 @@ Use a work folder `analysis/<short-name>/` (git-ignored). `G=.claude/skills/lear
    - Recordings' dynamic ranges differ a lot (Thielemann 19 dB, Lott's 30 dB, 2nd–98th percentile).
    - Renders must not be normalised (`audioToWav` does by default) and must start at the score's start (the core
      sequencer skips to the first note unless told not to before loading); both are handled in `scripts/lib/render.ts`.
+   - **The pulse** (how the pianist weights the beats of the bar; the loudness fit is too coarse to see it) comes
+     from the piano stem's attacks: render the piano flat with the recording's timing
+     (`render-audio.ts … --flat --parts 1 --timing T.json`), then
+     `.venv/bin/python $G/pulse_profile.py score-notes.json alignment.json no_vocals.wav START flat.wav T.json --bars …  --voice-part 0`.
+     Compare positions with the same texture (in *Var det en dröm?* the left hand starts a three-eighth group on
+     beats 1 and 4 and halfway through each: both pianists struck the big-beat bass clearly harder; the right
+     hand only lifted a little at beat 4). Then write `pulse` rules (README, Dynamics) and check the new voicing
+     still balances. Traps: the real piano's timbre differs from the synth's by register, so one position of a
+     figure can look accented in both recordings when it isn't (a second sixteenth did); a singer's new
+     syllables bleed into the stem, hence `--voice-part`; and the flux scale is not decibels, so calibrate with
+     a render that has a known pulse. When the print has dynamics, hairpins and pedal the transcription left
+     out, read them off the scan (kengraver keeps the source pages) and add them as marks, hairpins and pedal
+     spans; pedal by the bar's real beat (`every: 3` in 6/4), or a bass played every other eighth reads as a
+     new harmony on each beat.
 9. **Compare performers**, if there's more than one: `.venv/bin/python $G/compare.py analysis/A analysis/B -- 1-11 12-20 …`
    prints each performance's average tempo for the bar ranges you give (pick the score's sections or phrases).
 10. **Deliver** the file to the project root as `<score>.<performer>.kplayer.json` (not committed unless asked). Tell
