@@ -1,6 +1,6 @@
 ---
 name: learn-performance
-description: Learn how a performer shapes a piece (basic tempo, rubato, accelerandos, broadenings, breaths, and the conductor's dynamic shape) from a recording, and write it as a kplayer performance file to import. Use this whenever the user gives a recording (a YouTube link, an audio or video file) of a piece they have as MusicXML and wants kplayer to play it "like" that performer, wants to compare performers' tempi, or says a performance learned from a recording sounds wrong somewhere (an intro at half speed, "something weird happens in bar 83", a breath that isn't one, a section too fast). Also use it when aligning any recording to a score in this project.
+description: Learn how a performer shapes a piece's time (basic tempo, rubato, accelerandos, broadenings, breaths) from a recording, and write it as a kplayer performance file to import; the dynamics then come from the learn-dynamics skill. Use this whenever the user gives a recording (a YouTube link, an audio or video file) of a piece they have as MusicXML and wants kplayer to play it "like" that performer, wants to compare performers' tempi, or says a performance learned from a recording sounds wrong somewhere (an intro at half speed, "something weird happens in bar 83", a breath that isn't one, a section too fast). Also use it when aligning any recording to a score in this project.
 ---
 
 # Learning a performance from a recording
@@ -71,47 +71,10 @@ Use a work folder `analysis/<short-name>/` (git-ignored). `G=.claude/skills/lear
    no singing (an orchestral opening), `.venv/bin/python $G/pulse_grid.py analysis/X/sep/htdemucs/music/no_vocals.wav
    START END SUB` finds the steady tempo that best fits the attacks, where SUB is the attacks per quarter note in the
    texture (six in a sextuplet figuration). Times are seconds into `no_vocals.wav`, which starts at the music start.
-8. **Dynamics** (optional; the user may want the conductor's shape as well as the tempo). Measure the
-   accompaniment's loudness per beat: `$G/guard.sh .venv/bin/python tools/dynamics_arc.py analysis/X/alignment.json analysis/X/sep/htdemucs/music/no_vocals.wav START analysis/X/arc.json`
-   (START = where the stem starts in the recording; 0 for an instrumental recording itself). Then
-   `$G/guard.sh npx tsx scripts/fit-dynamics.ts score.mxl OUT.kplayer.json analysis/X/arc.json voicing.json OUT-dynamics.kplayer.json --part 1 --source "Name"`
-   (about a minute; ~3.4 GB peak in total). It needs a voicing (which notes lead, which recede: see the README's
-   Dynamics section; `voicing-example.json` in this skill's folder is a starting point for a piano reduction), renders the piano offline through
-   kplayer's synth, and fits a level every half bar until the render's loudness follows the recording's (each
-   relative to its median): expect ~8 dB rms off with the written dynamics, ~2 dB after. Check the balance with
-   `$G/guard.sh npx tsx scripts/voice-balance.ts score.mxl OUT-dynamics.kplayer.json`: the melody should be on top
-   in most bars by 3–6 dB. Things to know:
-   - Read the full score (IMSLP has most public-domain ones; downloads need a human to pass a captcha, so ask
-     the user to save the PDF in the project) before trusting the reduction's layout. A reduction moves lines between
-     hands and voices from bar to bar, and the same notation means different things: in Apollo the "tremolos" were
-     muted cellos (a soft blanket), timpani rolls (pp), and the whole string section at the climaxes (keep them full,
-     but well under the tune). Name voices after the instruments, add bar-range overrides where a line changes hands
-     (later voices win), and check the voices' notes with the Dynamics panel (click a voice) or a quick script.
-   - While reading it, check the reduction's notes: `python3 $G/accidental_clashes.py score.mxl` lists chords that
-     sound a note and its flat at once (a flat forgotten in another octave is a common slip; Apollo bars 32 and 86).
-     Chromatic music has real ones too, so confirm each against the full score and tell the user; don't edit the score.
-   - Piano reductions copy dynamics from *some* instruments: the reduction can say pp where the orchestra plays out
-     (Apollo bars 8–11, 87–88). Before blaming the stem for vocal leakage, measure the vocals stem too: if the
-     singer is silent there, the orchestra really is loud.
-   - A piano can't swell a held note, so only beats where the piano strikes count; otherwise the fit chases the
-     orchestra's sustain with ever louder attacks.
-   - Recordings' dynamic ranges differ a lot (Thielemann 19 dB, Lott's 30 dB, 2nd–98th percentile).
-   - Renders must not be normalised (`audioToWav` does by default) and must start at the score's start (the core
-     sequencer skips to the first note unless told not to before loading); both are handled in `scripts/lib/render.ts`.
-   - **The pulse** (how the pianist weights the beats of the bar; the loudness fit is too coarse to see it) comes
-     from the piano stem's attacks: render the piano flat with the recording's timing
-     (`render-audio.ts … --flat --parts 1 --timing T.json`), then
-     `.venv/bin/python $G/pulse_profile.py score-notes.json alignment.json no_vocals.wav START flat.wav T.json --bars …  --voice-part 0`.
-     Compare positions with the same texture (in *Var det en dröm?* the left hand starts a three-eighth group on
-     beats 1 and 4 and halfway through each: both pianists struck the big-beat bass clearly harder; the right
-     hand only lifted a little at beat 4). Then write `pulse` rules (README, Dynamics) and check the new voicing
-     still balances. Traps: the real piano's timbre differs from the synth's by register, so one position of a
-     figure can look accented in both recordings when it isn't (a second sixteenth did); a singer's new
-     syllables bleed into the stem, hence `--voice-part`; and the flux scale is not decibels, so calibrate with
-     a render that has a known pulse. When the print has dynamics, hairpins and pedal the transcription left
-     out, read them off the scan (kengraver keeps the source pages) and add them as marks, hairpins and pedal
-     spans; pedal by the bar's real beat (`every: 3` in 6/4), or a bass played every other eighth reads as a
-     new harmony on each beat.
+8. **Dynamics** (optional: the user may want the performer's dynamic shape as well as the tempo). Continue with
+   the **learn-dynamics** skill. It fits the recording's loudness beat by beat, measures the pianist's pulse,
+   and needs a voicing first (the **expressive-piano** skill, which also reads the print's own dynamics and
+   pedal).
 9. **Compare performers**, if there's more than one: `.venv/bin/python $G/compare.py analysis/A analysis/B -- 1-11 12-20 …`
    prints each performance's average tempo for the bar ranges you give (pick the score's sections or phrases).
 10. **Deliver** the file to the project root as `<score>.<performer>.kplayer.json` (not committed unless asked). Tell
@@ -126,7 +89,12 @@ These all happened on real recordings; each check takes seconds.
 - **The opening is stretched** (the user hears the intro "in half time"). Recordings often start with silence and
   then seconds of hiss before the first chord. `align_recording.py` skips both by measuring the noise floor, but
   check the printed start and `bar_tempos.py`: bar 1 should look like its neighbours, not half their tempo. To
-  check by ear, compare with the level in the first seconds after the printed start.
+  check by ear, compare with the level in the first seconds after the printed start. The alignment pins the
+  score's first beat to the first audio frame it's given, so the crop starts at the first chord with no margin
+  (a quarter-second margin once put beat 1 early in two recordings). Compare the printed start with the first
+  attack (`librosa.onset.onset_detect` on the first seconds). A performer who lingers on the very first note
+  (Keval Shah held the first sixteenth 0.3 s) makes the fit report a constant offset of about 0.2 s from bar 1.
+  That offset is the performance, not the alignment.
 - **Bars at exactly the written tempo, then a spike** (e.g. 60.0 then 150 BPM). Long held chords give the aligner
   nothing to anchor to. The two-pass alignment exists for this; if it persists locally, suspect that passage.
 - **Same-pitch boundaries.** Where a singer holds a note into a written rest and re-enters on the same pitch, pitch
