@@ -52,5 +52,5 @@ beat (within about 2 dB).
 
 With the steps in the main README ("Learning a performance from a recording"): synctoolbox to align the recordings
 to the score, Demucs to isolate the voice, `fit-performance` for the tempo, `dynamics_arc.py` and `fit-dynamics` for
-the dynamic shape, and `voice-balance` to check the voicing. The `learn-performance` skill in `.claude/skills` walks
-through all of it.
+the dynamic shape, and `voice-balance` to check the voicing. The `learn-performance`, `learn-dynamics` and
+`expressive-piano` skills in `.claude/skills` walk through all of it.
