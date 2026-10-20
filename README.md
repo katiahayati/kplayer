@@ -53,6 +53,13 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 - Your work autosaves in the browser for each score. **Export JSON** saves it as a file you can import later.
   **Export MIDI** writes the timed performance for use elsewhere.
 
+## Deploying
+
+kplayer builds to static files (`npm run build` → `dist/`), so any web host can serve it. `npm run deploy` builds and
+uploads with rsync over ssh to `KPLAYER_DEPLOY` (default: the author's site; set it to your own `host:folder/kplayer/`).
+Add `-- --dry-run` to see what would change first. The sound banks (about 160 MB) go up with it and are downloaded by
+each visitor's browser the first time they play.
+
 ## Example
 
 [`examples/apollo`](examples/apollo) has a full song to try: Strauss's *Gesang der Apollopriesterin* as a piano

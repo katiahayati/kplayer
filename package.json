@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "spike": "node scripts/spike.mjs",
     "fetch-soundfont": "bash scripts/fetch-soundfont.sh",
+    "deploy": "bash scripts/deploy.sh",
     "export-score": "tsx scripts/export-score.ts",
     "fit-performance": "tsx scripts/fit-performance.ts",
     "check-voice": "tsx scripts/check-voice.ts",
