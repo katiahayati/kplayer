@@ -199,5 +199,13 @@ describe('app', () => {
     expect(text()).toContain(`Selected note: Right hand, velocity ${Math.round(72 * 10 ** (-12 / 40))}`);
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
     expect(text()).toContain(`velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
+
+    // Importing phrasing alone (breaths, no dynamics) keeps the voicing.
+    const phrasing = { version: 2, tempoFactor: 1, parts: {}, gestures: [{ id: 'b9', type: 'breath', at: { measureIndex: 1, offsetQ: 2 }, extraMs: 300, beforeBeats: 1, afterBeats: 0.5 }] };
+    const importInput = document.querySelector<HTMLInputElement>('.transport input[accept=".json"]')!;
+    Object.defineProperty(importInput, 'files', { value: [new NodeFile([JSON.stringify(phrasing)], 'phrasing.kplayer.json')], configurable: true });
+    await act(async () => void importInput.dispatchEvent(new Event('change', { bubbles: true })));
+    await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
+    expect(text()).toContain('Right hand');
   });
 });

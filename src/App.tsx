@@ -437,7 +437,8 @@ export default function App() {
       if (score && imported.score && imported.score.sha256 !== score.sha256) {
         if (!confirm(`This performance was made for "${imported.score.name}", which differs from the open score. Load it anyway?`)) return;
       }
-      setDoc({ ...imported, score: score ? { name: score.name, sha256: score.sha256 } : imported.score });
+      // A file of phrasing alone keeps the voicing you have; one with its own dynamics brings them.
+      setDoc({ ...imported, dynamics: imported.dynamics ?? doc.dynamics, score: score ? { name: score.name, sha256: score.sha256 } : imported.score });
       setSelection({ kind: 'none' });
     } catch (e) {
       setError((e as Error).message);
