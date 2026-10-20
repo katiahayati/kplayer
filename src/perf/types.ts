@@ -178,6 +178,12 @@ export interface PedalSpan {
   from: Anchor;
   to: Anchor;
   mode: 'harmony' | 'beat' | 'bar' | 'off';
+  /**
+   * The beat, in quarter notes from each bar's start (1 when absent): how often the harmony is compared,
+   * or the pedal changed. 3 follows the dotted halves of 6/4, so a bass played every other eighth isn't
+   * mistaken for a new one on each beat.
+   */
+  every?: number;
   part?: number;
 }
 

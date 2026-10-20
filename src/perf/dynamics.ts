@@ -215,27 +215,47 @@ function noise(part: number, i: number): number {
   return (((h ^ (h >>> 16)) >>> 0) / 0xffffffff) * 2 - 1;
 }
 
+/** Where each beat of `every` quarter notes starts in [q0, q1), counted from each bar's start; q0 first. */
+function beatStarts(barStarts: number[], q0: number, q1: number, every: number): number[] {
+  const step = every > 0 ? every : 1;
+  const bars = barStarts.length ? barStarts : [0];
+  const out = [q0];
+  for (let i = 0; i < bars.length; i++) {
+    const end = Math.min(bars[i + 1] ?? q1, q1);
+    for (let k = 0, q = bars[i]; q < end - 1e-6; q = bars[i] + ++k * step) if (q > q0 + 1e-6) out.push(q);
+  }
+  return out;
+}
+
 /**
- * Where to change the pedal in [q0, q1), beat by beat: wherever a beat brings a new bass note or a pitch
- * class the beat before didn't have. Beats that only repeat the harmony (repeated chords, a held
- * melody) stay under one pedal; moving figures get a fresh pedal each beat instead of blurring.
+ * Where to change the pedal, beat by beat (`starts` are the beats, the last ending at q1): wherever a beat
+ * brings a new bass note or a pitch class the beat before didn't have. Beats that only repeat the harmony
+ * (repeated chords, a held melody) stay under one pedal; moving figures get a fresh pedal each beat
+ * instead of blurring.
  */
-function harmonyChanges(notes: ScoreNote[], q0: number, q1: number): number[] {
+function harmonyChanges(notes: ScoreNote[], starts: number[], q1: number): number[] {
   // Each beat's notes, filed in one pass: those starting in it and those sounding in it.
-  const first = Math.floor(q0 + 1e-9);
-  const count = Math.max(0, Math.ceil(q1 - 1e-9) - first);
+  const count = starts.length;
+  const end = (b: number) => (b + 1 < count ? starts[b + 1] : q1);
+  const beatOf = (q: number) => {
+    let lo = -1;
+    let hi = count - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= q + 1e-6) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  };
   const starting: ScoreNote[][] = Array.from({ length: count }, () => []);
   const sounding: ScoreNote[][] = Array.from({ length: count }, () => []);
   for (const n of notes) {
-    if (n.qOff <= q0 || n.qOn >= q1) continue;
-    const s = Math.max(0, Math.floor(n.qOn + 1e-6) - first);
-    const e = Math.min(count - 1, Math.ceil(n.qOff - 1e-6) - first - 1);
-    for (let b = s; b <= e; b++) {
-      const lo = Math.max(first + b, q0);
-      const hi = Math.min(first + b + 1, q1);
-      if (n.qOn < hi - 1e-6 && n.qOff > lo + 1e-6) sounding[b].push(n);
+    if (n.qOff <= starts[0] || n.qOn >= q1) continue;
+    const s = beatOf(n.qOn);
+    for (let b = Math.max(0, s); b < count && starts[b] < n.qOff - 1e-6; b++) {
+      if (n.qOn < end(b) - 1e-6 && n.qOff > starts[b] + 1e-6) sounding[b].push(n);
     }
-    if (n.qOn >= q0 - 1e-6 && s < count && n.qOn < Math.min(first + s + 1, q1) - 1e-6) starting[s].push(n);
+    if (s >= 0) starting[s].push(n);
   }
   const changes: number[] = [];
   let prev: Set<number> | undefined;
@@ -261,11 +281,12 @@ function pedalEvents(part: ScorePart, input: DynamicsInput): ScoreControl[] {
         out.push({ number: 64, value: 0, q: q0 });
         continue;
       }
+      const beats = beatStarts(input.barStarts, q0, q1, span.every ?? 1);
       const changes =
         span.mode === 'harmony'
-          ? harmonyChanges(part.notes, q0, q1)
+          ? harmonyChanges(part.notes, beats, q1)
           : span.mode === 'beat'
-            ? Array.from({ length: Math.ceil(q1 - q0) - 1 }, (_, i) => q0 + i + 1)
+            ? beats.slice(1)
             : input.barStarts.filter((b) => b > q0 + 1e-6 && b < q1 - 1e-6);
       out.push({ number: 64, value: 1, q: q0 + PEDAL_CATCH_Q });
       for (const c of changes) out.push({ number: 64, value: 0, q: c }, { number: 64, value: 1, q: c + PEDAL_CATCH_Q });

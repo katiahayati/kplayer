@@ -48,8 +48,12 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
   panel: strands of the texture (a melody, a tremolo blanket, repeated chords, the bass), each picked by staff, voice,
   note length, top or bottom of the chord, tremolo, and bars, with its own level in dB. Click a voice to light up its
   notes in the score; click a note to see its voice and velocity. A voice can sound slightly **ahead** (as a pianist
-  brings out a tune) or vary a little in level and timing (so a tremolo shimmers). Sustain pedal can change with the
-  harmony. **Import voicing…** takes the dynamics from a file without touching your tempo phrasing.
+  brings out a tune) or vary a little in level and timing (so a tremolo shimmers). A **pulse** adds a metric
+  lean on top of the voices: the notes on chosen beats of the bar (the big beats of a 6/4 bar, say, or only beat 4)
+  play a few dB louder, optionally fading over the beat; pulses add up, so the downbeat can weigh more than the
+  others. Sustain pedal can change with the harmony, compared beat by beat (or by a longer beat, such as the dotted
+  half of 6/4). Two voices sharing a notehead play as one note, as a pianist strikes the key once. **Import
+  voicing…** takes the dynamics from a file without touching your tempo phrasing.
 - Your work autosaves in the browser for each score. **Export JSON** saves it as a file you can import later.
   **Export MIDI** writes the timed performance for use elsewhere.
 

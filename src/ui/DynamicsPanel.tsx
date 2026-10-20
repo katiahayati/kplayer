@@ -118,7 +118,9 @@ export function DynamicsPanel(p: Props) {
             checked={span.enabled !== false}
             onChange={(e) => p.onChange({ ...d!, pedal: d!.pedal!.map((s) => (s.id === span.id ? { ...s, enabled: e.target.checked } : s)) }, `pedal:${span.id}`)}
           />
-          Pedal, {PEDAL_MODES[span.mode]}, {anchorLabel(span.from)} – {anchorLabel(span.to)}
+          Pedal, {PEDAL_MODES[span.mode]}
+          {span.every && span.every !== 1 && span.mode !== 'bar' && span.mode !== 'off' ? ` (by the ${lengthName(span.every).replace(/^an? /, '')})` : ''}, {anchorLabel(span.from)} –{' '}
+          {anchorLabel(span.to)}
         </label>
       ))}
       {voices.some((v) => v.lead) && (

@@ -239,6 +239,26 @@ describe('pedal', () => {
     ]);
   });
 
+  it('compares the harmony beat by beat of a longer beat', () => {
+    // Half-note beats: the passing notes of beat 3 come in with the second half of bar 1; beat 4 holds them.
+    expect(pedal({ voices: [], pedal: [{ id: 'p', from: bar(1), to: bar(4), mode: 'harmony', every: 2 }] })).toEqual([
+      [0.08, 1],
+      [2, 0],
+      [2.08, 1],
+      [4, 0],
+      [4.08, 1],
+      [8, 0],
+      [8.08, 1],
+      [12, 0],
+    ]);
+    expect(pedal({ voices: [], pedal: [{ id: 'p', from: bar(1), to: bar(3), mode: 'beat', every: 2 }] }).filter(([, v]) => v === 0)).toEqual([
+      [2, 0],
+      [4, 0],
+      [6, 0],
+      [8, 0],
+    ]);
+  });
+
   it('changes every bar, or stays off', () => {
     expect(pedal({ voices: [], pedal: [{ id: 'p', from: bar(1), to: bar(3), mode: 'bar' }] })).toEqual([
       [0.08, 1],
