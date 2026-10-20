@@ -83,6 +83,16 @@ describe('app', () => {
     expect(now()).toHaveLength(0);
     const items = [...document.querySelectorAll('.list li')];
     expect(items.at(-1)?.classList.contains('playhead-marker')).toBe(true);
+    // Back to the beginning (the button, then Home).
+    const position = () => document.querySelector('.position')?.textContent ?? '';
+    const atStart = position().replace(/^.*? · /, '').startsWith('0:00');
+    expect(atStart).toBe(false);
+    await click(document.querySelector('button[aria-label="Back to the beginning"]')!);
+    expect(position().replace(/^.*? · /, '')).toMatch(/^0:00/);
+    await click(lastBar[0]);
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home' })));
+    expect(position().replace(/^.*? · /, '')).toMatch(/^0:00/);
+    await click(lastBar[0]);
     // Re-select the section for the steps below.
     await click(button('Broaden · 10%'));
 

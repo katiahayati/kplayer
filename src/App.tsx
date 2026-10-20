@@ -51,6 +51,8 @@ export default function App() {
   const pendingPlay = useRef(false);
   const playQRef = useRef(0);
   playQRef.current = playQ;
+  /** Where playing again starts once the piece has ended: the selected notes, else the beginning. */
+  const restartQRef = useRef(0);
 
   // ---- Timing --------------------------------------------------------------
 
@@ -115,7 +117,7 @@ export default function App() {
     pendingQ.current = undefined;
     pendingPlay.current = false;
     if (loop && (q < loop.q0 || q >= loop.q1)) q = loop.q0;
-    if (q >= map.endQ - 1e-6) q = 0;
+    if (q >= map.endQ - 1e-6) q = restartQRef.current;
     p.load(midi, { offset: loop ? map.T(loop.q0) : 0, loop: !!loop, at: map.T(q), play });
     loadedMap.current = map;
     setPlayQ(q);
@@ -129,6 +131,7 @@ export default function App() {
 
   useEffect(() => {
     let raf = 0;
+    let wasOn = false;
     const tick = () => {
       const p = player.current;
       const m = loadedMap.current;
@@ -136,6 +139,12 @@ export default function App() {
         const on = p.playing;
         setPlaying(on);
         if (on) setPlayQ(Math.min(m.qAt(p.time), m.endQ));
+        else if (wasOn && p.finished) {
+          // The end: back to the selected notes (or the beginning), ready to play again from there.
+          setPlayQ(restartQRef.current);
+          p.seek(m.T(restartQRef.current));
+        }
+        wasOn = on;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -166,7 +175,8 @@ export default function App() {
     if (p.playing) return p.pause();
     const m = loadedMap.current;
     if (m && (p.finished || playQRef.current >= m.endQ - 1e-6)) {
-      pendingQ.current = 0;
+      // A finished sequencer needs reloading; from where the playhead is, unless it's still at the end.
+      pendingQ.current = playQRef.current >= m.endQ - 1e-6 ? restartQRef.current : playQRef.current;
       return pushToPlayer({ play: true });
     }
     p.play();
@@ -278,6 +288,8 @@ export default function App() {
       to: anchorFor(idx, idx.measureOf.get(lastId) ?? 0, last.qOff),
     };
   }, [score, selection]);
+
+  restartQRef.current = noteRange?.q0 ?? 0;
 
   const selectedGesture = selection.kind === 'gesture' ? doc.gestures.find((g) => g.id === selection.id) : undefined;
   /** Where each gesture acts, in score positions (one span per pass through repeats). */
@@ -442,6 +454,9 @@ export default function App() {
     if (e.key === ' ') {
       e.preventDefault();
       void togglePlay();
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      seekTo(0);
     } else if (mod && e.key.toLowerCase() === 'z') {
       e.preventDefault();
       if (e.shiftKey) history.redo();
@@ -510,6 +525,7 @@ export default function App() {
         onExportJson={exportJson}
         onExportMidi={exportMidi}
         onPlayPause={togglePlay}
+        onRewind={() => seekTo(0)}
         onExpressive={setExpressive}
         onDynamics={setDynamicsOn}
         onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}

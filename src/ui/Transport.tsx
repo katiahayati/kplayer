@@ -24,6 +24,7 @@ interface Props {
   onExportJson: () => void;
   onExportMidi: () => void;
   onPlayPause: () => void;
+  onRewind: () => void;
   onExpressive: (on: boolean) => void;
   onDynamics: (on: boolean) => void;
   onTempoFactor: (f: number) => void;
@@ -65,6 +66,9 @@ export function Transport(p: Props) {
       </div>
       {p.canPlay && (
         <div className="row">
+          <button onClick={p.onRewind} title="Back to the beginning (Home)" aria-label="Back to the beginning">
+            ⏮
+          </button>
           <button className="play" onClick={p.onPlayPause} title="Play / pause (Space)">
             {p.playing ? '❚❚ Pause' : '▶ Play'}
           </button>
