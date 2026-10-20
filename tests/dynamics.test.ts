@@ -169,6 +169,57 @@ describe('voicing', () => {
   });
 });
 
+describe('pulse', () => {
+  const accent = (v: number, db: number) => Math.round(v * velocityGain(db));
+  const repeated = (doc: DynamicsDoc) => velocities(shape(doc), (n) => n.layer === 2);
+
+  it('plays the notes on each beat louder', () => {
+    expect(repeated({ voices: [], pulse: [{ id: 'p', every: 2, gainDb: 6 }] })).toEqual([accent(49, 6), 49, accent(49, 6), 49]);
+  });
+
+  it('only on the beats asked for', () => {
+    expect(repeated({ voices: [], pulse: [{ id: 'p', every: 2, beats: [1], gainDb: 6 }] })).toEqual([49, 49, accent(49, 6), 49]);
+  });
+
+  it('fades the accent over the beat', () => {
+    expect(repeated({ voices: [], pulse: [{ id: 'p', every: 2, gainDb: 6, fade: 1 }] })).toEqual([accent(49, 6), accent(49, 3), accent(49, 6), accent(49, 3)]);
+  });
+
+  it("counts beats from each bar's start", () => {
+    // Melody: C5 at 0, D5 at 4 (bar 2), E5 at 8, then the 3/2 bar's half notes at 12, 14 (pp), 16.
+    const melody = velocities(shape({ voices: [], pulse: [{ id: 'p', every: 3, select: { layer: [1] }, gainDb: 6 }] }), (n) => n.layer === 1);
+    expect(melody).toEqual([accent(49, 6), accent(49, 6), accent(88, 6), accent(88, 6), 32, 32]);
+  });
+
+  it("adds to a voice's level, and other pulses", () => {
+    const doc: DynamicsDoc = {
+      voices: [{ id: 'v', name: 'Pulse', select: { layer: [2] }, gainDb: -6 }],
+      pulse: [
+        { id: 'big', every: 2, gainDb: 3 },
+        { id: 'down', every: 4, gainDb: 3 },
+        { id: 'off', every: 4, gainDb: 3, enabled: false },
+      ],
+    };
+    expect(repeated(doc)).toEqual([49, accent(49, -6), accent(49, -3), accent(49, -6)]);
+  });
+});
+
+describe('playing the notes', () => {
+  it('strikes a key once when two voices share a notehead', () => {
+    const note = (qOn: number, qOff: number, velocity: number, layer: number) => ({ midi: 60, qOn, qOff, velocity, layer });
+    const events: ScoreEvents = {
+      parts: [{ index: 0, tracks: [0], name: 'Piano', channel: 0, program: 0, controls: [], notes: [note(0, 0.25, 0.3, 1), note(0, 1, 0.6, 3), note(1, 1.25, 0.3, 1)] }],
+      tempos: [{ q: 0, bpm: 60 }],
+      endQ: 2,
+    };
+    const notes = new tonejs.Midi(renderPerformanceMidi(events, buildTimeMap({ tempos: events.tempos, endQ: 2 }))).tracks.flatMap((t) => t.notes);
+    expect(notes.map((n) => [+n.time.toFixed(3), +n.duration.toFixed(3), Math.round(n.velocity * 127)])).toEqual([
+      [0, 1, Math.round(0.6 * 127)],
+      [1, 0.25, Math.round(0.3 * 127)],
+    ]);
+  });
+});
+
 describe('pedal', () => {
   const pedal = (doc: DynamicsDoc) => shape(doc).parts[0].controls.filter((c) => c.number === 64).map((c) => [+c.q.toFixed(2), c.value]);
 

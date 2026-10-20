@@ -125,6 +125,31 @@ export interface VoiceRule {
   jitterMs?: number;
 }
 
+/**
+ * A metric pulse: the notes struck on a beat of the bar play louder, and the accent can fade over the
+ * notes that follow. Beats count from each bar's start. Pulses add up, to each other and to the voices,
+ * so a bass can lean on the big beats of a 6/4 bar while its voice keeps its own level.
+ */
+export interface PulseRule {
+  id: string;
+  /** What it is, e.g. "Bass, big beats". */
+  name?: string;
+  enabled?: boolean;
+  /** Where it applies; the whole piece when absent. `to` is exclusive. */
+  from?: Anchor;
+  to?: Anchor;
+  /** Which notes; every note when absent. */
+  select?: NoteSelector;
+  /** The beat, in quarter notes: 3 for the dotted half of 6/4, 6 for its downbeat alone. */
+  every: number;
+  /** Only these beats of the bar, counted from 0 (with `every: 3` in 6/4, [1] is beat 4); every beat when absent. */
+  beats?: number[];
+  /** Louder on the beat, in decibels (negative for softer). */
+  gainDb: number;
+  /** How far the accent carries, as a fraction of the beat: 0 for the notes on the beat alone, 1 to fade over all of it. */
+  fade?: number;
+}
+
 /** A dynamic the score doesn't write (taken from the full score, say). */
 export interface DynamicMarkGesture {
   id: string;
@@ -165,6 +190,7 @@ export interface DynamicsDoc {
    */
   written?: boolean;
   voices: VoiceRule[];
+  pulse?: PulseRule[];
   marks?: DynamicMarkGesture[];
   hairpins?: HairpinGesture[];
   pedal?: PedalSpan[];

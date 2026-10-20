@@ -347,6 +347,11 @@ kbd {
   margin: 14px 0 6px;
 }
 
+.panel h4 {
+  font-size: 12px;
+  margin: 12px 0 2px;
+}
+
 .panel p {
   margin: 6px 0;
 }

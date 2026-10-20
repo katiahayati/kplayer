@@ -108,6 +108,31 @@ export interface RenderOptions {
   loop?: { q0: number; q1: number };
 }
 
+/** Notes of one pitch closer together than this (quarter notes) are one stroke of the key. */
+const UNISON_Q = 0.02;
+
+/**
+ * A pianist strikes a key once, though two voices may share the notehead: notes of one pitch starting
+ * together play as one note, as loud and as long as the larger of them (and ahead if either leads).
+ * Played twice, the doubled samples would sound up to 6 dB louder than their neighbours.
+ */
+export function mergeUnisons(notes: ScoreNote[]): ScoreNote[] {
+  const out: ScoreNote[] = [];
+  const lastOfPitch = new Map<number, number>();
+  for (const n of [...notes].sort((a, b) => a.qOn - b.qOn)) {
+    const k = lastOfPitch.get(n.midi);
+    const prev = k === undefined ? undefined : out[k];
+    if (prev && n.qOn - prev.qOn < UNISON_Q) {
+      const lead = Math.max(prev.leadSec ?? 0, n.leadSec ?? 0);
+      out[k!] = { ...(n.velocity > prev.velocity ? n : prev), qOn: prev.qOn, qOff: Math.max(prev.qOff, n.qOff), leadSec: lead || undefined };
+      continue;
+    }
+    lastOfPitch.set(n.midi, out.length);
+    out.push(n);
+  }
+  return out;
+}
+
 export function renderPerformanceMidi(score: ScoreEvents, map: TimeMap, opts: RenderOptions = {}): Uint8Array {
   const ticksPerSec = (PERF_PPQ * PERF_BPM) / 60;
   const loop = opts.loop;
@@ -122,7 +147,7 @@ export function renderPerformanceMidi(score: ScoreEvents, map: TimeMap, opts: Re
     const ch = part.channel & 0x0f;
     const events: SmfEvent[] = [{ tick: 0, order: 1, bytes: [0xc0 | ch, part.program & 0x7f] }];
 
-    const notes = loop ? part.notes.filter((n) => n.qOn >= loop.q0 - 1e-9 && n.qOn < loop.q1 - 1e-9) : part.notes;
+    const notes = mergeUnisons(loop ? part.notes.filter((n) => n.qOn >= loop.q0 - 1e-9 && n.qOn < loop.q1 - 1e-9) : part.notes);
     const rendered = notes.map((n) => {
       const on = Math.max(0, toTicks(n.qOn) - Math.round((n.leadSec ?? 0) * ticksPerSec));
       // In a loop, end every note just before the loop point so nothing hangs over the jump.

@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import type { DynamicsDoc, NoteSelector, VoiceRule } from '../perf/types';
+import type { DynamicsDoc, NoteSelector, PulseRule, VoiceRule } from '../perf/types';
 import { anchorLabel } from './Inspector';
 
 interface Props {
@@ -22,8 +22,11 @@ export function DynamicsPanel(p: Props) {
   const input = useRef<HTMLInputElement>(null);
   const d = p.dynamics;
   const voices = d?.voices ?? [];
+  const pulses = d?.pulse ?? [];
   const set = (id: string, patch: Partial<VoiceRule>, field: string) =>
     p.onChange({ ...d!, voices: voices.map((v) => (v.id === id ? { ...v, ...patch } : v)) }, `voice:${id}:${field}`);
+  const setPulse = (id: string, patch: Partial<PulseRule>, field: string) =>
+    p.onChange({ ...d!, pulse: pulses.map((r) => (r.id === id ? { ...r, ...patch } : r)) }, `pulse:${id}:${field}`);
   const noteVoice = p.note?.voice ? voices.find((v) => v.id === p.note!.voice) : undefined;
 
   return (
@@ -84,6 +87,30 @@ export function DynamicsPanel(p: Props) {
           ))}
         </ul>
       )}
+      {pulses.length > 0 && (
+        <>
+          <h4>Pulse</h4>
+          <ul className="voices">
+            {pulses.map((r) => (
+              <li key={r.id} className={r.enabled === false ? 'off' : ''}>
+                <div className="voice-head">
+                  <input type="checkbox" checked={r.enabled !== false} onChange={(e) => setPulse(r.id, { enabled: e.target.checked }, 'enabled')} title="On / off" />
+                  <span className="voice-name">{r.name ?? 'Pulse'}</span>
+                </div>
+                <div className="muted voice-what">{describePulse(r, p.partNames)}</div>
+                <label className="slider">
+                  <span>Accent</span>
+                  <input type="range" min={-6} max={9} step={0.5} value={r.gainDb} onChange={(e) => setPulse(r.id, { gainDb: Number(e.target.value) }, 'gain')} />
+                  <output>
+                    {r.gainDb > 0 ? '+' : ''}
+                    {r.gainDb} dB
+                  </output>
+                </label>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {(d?.pedal ?? []).map((span) => (
         <label key={span.id} className="check pedal" title="Sustain pedal over this stretch">
           <input
@@ -107,8 +134,15 @@ export function DynamicsPanel(p: Props) {
 
 const PEDAL_MODES = { harmony: 'changed with the harmony', beat: 'changed every beat', bar: 'changed every bar', off: 'off' } as const;
 
+/** "On beats 1 and 4: Piano, lower staff, bottom note; fading over half the beat" */
+function describePulse(r: PulseRule, partNames: string[]): string {
+  const beats = r.beats ? `On beat ${r.beats.map((b) => +(b * r.every + 1).toFixed(2)).join(' and ')}` : `On every ${lengthName(r.every).replace(/^an? /, '')} beat`;
+  const fade = r.fade ? `; fading over ${r.fade >= 1 ? 'the whole' : `${Math.round(r.fade * 100)}% of the`} beat` : '';
+  return `${beats}: ${describe({ select: r.select ?? {}, from: r.from, to: r.to }, partNames)}${fade}`;
+}
+
 /** "Piano, upper staff, long notes, top note, m. 9 – m. 28" */
-function describe(v: VoiceRule, partNames: string[]): string {
+function describe(v: Pick<VoiceRule, 'select' | 'from' | 'to'>, partNames: string[]): string {
   const s: NoteSelector = v.select;
   const bits: string[] = [];
   if (s.part !== undefined) bits.push(partNames[s.part] ?? `part ${s.part + 1}`);
@@ -128,8 +162,11 @@ function describe(v: VoiceRule, partNames: string[]): string {
 
 function lengthName(q: number): string {
   const names: [number, string][] = [
+    [6, 'a dotted whole note'],
     [4, 'a whole note'],
+    [3, 'a dotted half'],
     [2, 'a half note'],
+    [1.5, 'a dotted quarter'],
     [1, 'a quarter'],
     [0.5, 'an eighth'],
     [0.25, 'a 16th'],

@@ -75,7 +75,10 @@ def trim_silence(audio: np.ndarray, threshold_db: float = -60.0) -> tuple[np.nda
                 sure -= 1
             first = sure
 
-    start = max(0, first * hop - FS // 4)
+    # No margin before the music: the alignment pins the score's first beat to the audio's first
+    # frame, so audio kept before the first chord would put that beat early (a quarter second of
+    # margin did, in two recordings). The first loud frame holds the attack.
+    start = first * hop
     end = min(len(audio), (last + 1) * hop + FS // 2)
     return audio[start:end], start / FS
 

@@ -2,8 +2,9 @@
 // its own a pianissimo tremolo plays as loud as the melody it accompanies. This
 // gives each note its part's written dynamic (with hairpins, and any dynamics
 // the performance adds), then the performance's voicing on top: which strands
-// of the texture lead and which recede. It also lays down sustain pedal and
-// marks the notes that should sound slightly ahead.
+// of the texture lead and which recede, and the metric pulse (a lean on the
+// big beats). It also lays down sustain pedal and marks the notes that should
+// sound slightly ahead.
 //
 // Levels are MIDI velocities; voice levels are decibels relative to them. A
 // SoundFont synth turns velocity v into a gain of 40·log10(v/127) dB (the
@@ -12,7 +13,7 @@
 
 import { pairSpans } from './compile';
 import type { ScoreControl, ScoreEvents, ScoreNote, ScorePart } from './render';
-import type { Anchor, DynamicsDoc, NoteSelector, VoiceRule } from './types';
+import type { Anchor, DynamicsDoc, NoteSelector, PulseRule, VoiceRule } from './types';
 import type { DynamicMark, HairpinMark } from '../score/mei';
 
 /** Velocities of the written markings: MusicXML's defaults, as MuseScore exports them. */
@@ -137,8 +138,8 @@ function restruck(part: ScorePart): Set<number> {
   return out;
 }
 
-/** Which notes each voice rule covers, by part and note index. */
-function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => number[], endQ: number, repeats: () => Set<number>): Set<number> {
+/** Which notes a voice (or pulse) rule covers, by note index. */
+function voiceMembers(rule: Pick<VoiceRule, 'select' | 'from' | 'to'>, part: ScorePart, resolve: (a: Anchor) => number[], endQ: number, repeats: () => Set<number>): Set<number> {
   const s: NoteSelector = rule.select;
   const members = new Set<number>();
   if (s.part !== undefined && s.part !== part.index) return members;
@@ -171,6 +172,39 @@ function voiceMembers(rule: VoiceRule, part: ScorePart, resolve: (a: Anchor) => 
     for (const i of group) if (part.notes[i].midi === want) members.add(i);
   }
   return members;
+}
+
+/** How far within a beat a pulse still counts as on it, in quarter notes (Verovio's tuplets can land a tick off). */
+const ON_BEAT_Q = 0.02;
+
+/** Each note's accent from the pulse rules, in decibels, by note index. */
+function pulseGains(part: ScorePart, rules: PulseRule[], input: DynamicsInput, repeats: () => Set<number>): Float64Array {
+  const out = new Float64Array(part.notes.length);
+  const bars = input.barStarts;
+  const barStart = (q: number) => {
+    let lo = 0;
+    let hi = bars.length - 1;
+    if (hi < 0 || q < bars[0] - ON_BEAT_Q) return 0;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (bars[mid] <= q + ON_BEAT_Q) lo = mid;
+      else hi = mid - 1;
+    }
+    return bars[lo];
+  };
+  for (const rule of rules) {
+    if (!(rule.every > 0)) continue;
+    const reach = (rule.fade ?? 0) * rule.every;
+    for (const i of voiceMembers({ ...rule, select: rule.select ?? {} }, part, input.resolve, input.events.endQ, repeats)) {
+      const into = part.notes[i].qOn - barStart(part.notes[i].qOn);
+      const beat = Math.floor((into + ON_BEAT_Q) / rule.every);
+      if (rule.beats && !rule.beats.includes(beat)) continue;
+      const phase = Math.max(0, into - beat * rule.every);
+      const weight = phase <= ON_BEAT_Q ? 1 : reach > 0 ? Math.max(0, 1 - phase / reach) : 0;
+      out[i] += rule.gainDb * weight;
+    }
+  }
+  return out;
 }
 
 /** A fixed pseudo-random number in [−1, 1] for a note, so variation is the same on every playback. */
@@ -246,6 +280,7 @@ export function shapeDynamics(input: DynamicsInput): ScoreEvents {
   const { events, doc, resolve } = input;
   const levels = partLevels(input);
   const rules = (doc?.voices ?? []).filter((r) => r.enabled !== false);
+  const pulses = (doc?.pulse ?? []).filter((r) => r.enabled !== false);
   const leadSec = (doc?.leadMs ?? 20) / 1000;
   const parts = events.parts.map((part) => {
     const level = levels.get(part.index)!;
@@ -253,9 +288,10 @@ export function shapeDynamics(input: DynamicsInput): ScoreEvents {
     let repeats: Set<number> | undefined;
     const lazyRepeats = () => (repeats ??= restruck(part));
     for (const rule of rules) for (const i of voiceMembers(rule, part, resolve, events.endQ, lazyRepeats)) voiceOf.set(i, rule);
+    const accent = pulseGains(part, pulses, input, lazyRepeats);
     const notes = part.notes.map((n, i): ScoreNote => {
       const rule = voiceOf.get(i);
-      const db = (rule?.gainDb ?? 0) + (rule?.varyDb ? rule.varyDb * noise(part.index, i) : 0);
+      const db = (rule?.gainDb ?? 0) + (rule?.varyDb ? rule.varyDb * noise(part.index, i) : 0) + accent[i];
       const velocity = clamp(Math.round(level(n.qOn) * velocityGain(db)), 1, 127) / 127;
       // Ahead for a leading voice; a little either way for a jittered one (a different draw from its level's).
       const ahead = (rule?.lead ? leadSec : 0) + (rule?.jitterMs ? (rule.jitterMs / 1000) * noise(part.index + 7919, i) : 0);
