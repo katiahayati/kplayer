@@ -13,13 +13,7 @@
     "typecheck": "tsc --noEmit",
     "spike": "node scripts/spike.mjs",
     "fetch-soundfont": "bash scripts/fetch-soundfont.sh",
-    "deploy": "bash scripts/deploy.sh",
-    "export-score": "tsx scripts/export-score.ts",
-    "fit-performance": "tsx scripts/fit-performance.ts",
-    "check-voice": "tsx scripts/check-voice.ts",
-    "fit-dynamics": "tsx scripts/fit-dynamics.ts",
-    "voice-balance": "tsx scripts/voice-balance.ts",
-    "render-audio": "tsx scripts/render-audio.ts"
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "@tonejs/midi": "^2.0.28",

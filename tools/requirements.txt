@@ -1,2 +1,0 @@
-synctoolbox==1.4.2
-pyloudnorm==0.1.1

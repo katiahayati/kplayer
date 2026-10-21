@@ -1,8 +1,8 @@
 // A concert hall for the piano. The synth plays dry, as if close-miked in a dead room;
 // this is the room: a synthetic impulse response, decaying noise in octave bands (the low
 // notes ring longer than the high ones, as in a hall) after a short pre-delay and a few
-// early reflections. The app plays it through a ConvolverNode; offline renders convolve
-// with the same response (scripts/lib/hall.ts), so both sound alike.
+// early reflections. The app plays it through a ConvolverNode; kespressivo's offline renders
+// convolve with the same response (its scripts/lib/hall.ts), so both sound alike.
 
 export const HALL = {
   /** Reverberation time in the middle of the range (500 Hz–1 kHz), seconds. */

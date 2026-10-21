@@ -70,12 +70,6 @@ uploads with rsync over ssh to `KPLAYER_DEPLOY` (default: the author's site; set
 Add `-- --dry-run` to see what would change first. The sound banks (about 113 MB) go up with it and are downloaded by
 each visitor's browser as soon as the page opens, so they're ready by the time you press Play.
 
-## Example
-
-[`examples/apollo`](examples/apollo) has a full song to try: Strauss's *Gesang der Apollopriesterin* as a piano
-reduction, with tempo shaping learned from two recordings (Thielemann/Fleming and Felicity Lott), a voicing taken
-from the full score, and each conductor's dynamic shape.
-
 ## How it works
 
 Every note has a score position *q* (in quarter notes). Performance time is
@@ -95,56 +89,12 @@ the same step at pp as at ff. `src/perf/dynamics.ts` reads each note's staff and
 Code map: `src/perf/` holds the timing engine (pure TypeScript, tested), `src/score/` the Verovio loading and score
 view, `src/audio/` the synth wrapper, and `src/ui/` the panels. See `NOTES.md` for findings about the libraries.
 
-## Learning a performance from a recording
+## Interpretation from recordings
 
-kplayer can listen to a recording of the piece and write a performance file with the performer's tempo shaping:
-their basic tempo, **Speed up** / **Slow down** sections between their tempo turning points, and **breaths** where
-the singer takes extra time at a phrase end. Import the result with **Import…**.
-
-```sh
-python3 -m venv .venv && .venv/bin/pip install -r tools/requirements.txt   # once
-npm run export-score -- song.mxl > /tmp/song-notes.json
-.venv/bin/python tools/align_recording.py /tmp/song-notes.json recording.webm /tmp/alignment.json
-npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json --performer "Performer"
-```
-
-For a song, it can follow the singer more closely. Isolate the voice with [Demucs](https://github.com/facebookresearch/demucs),
-align the score's vocal line to it, and pass the result to the fit:
-
-```sh
-.venv/bin/pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu && .venv/bin/pip install demucs==4.0.1   # once
-ffmpeg -ss START -i recording.webm -ac 2 -ar 44100 /tmp/music.wav     # START: where the music begins (printed by the aligner)
-.venv/bin/python -m demucs.separate -n htdemucs --two-stems=vocals --segment 7 -o /tmp/sep /tmp/music.wav
-.venv/bin/python tools/align_voice.py /tmp/song-notes.json /tmp/alignment.json /tmp/sep/htdemucs/music/vocals.wav START /tmp/voice.json
-npm run fit-performance -- song.mxl /tmp/alignment.json song.performer.kplayer.json --performer "Performer" --voice /tmp/voice.json
-npm run check-voice -- song.mxl song.performer.kplayer.json /tmp/voice.json   # how closely a file follows the singer
-```
-
-Demucs needs about 4.5 GB of memory for a 7-minute song.
-
-A faithful fit keeps every local tempo wobble, which can sound erratic on piano. For a calmer version that keeps the
-big gestures and the breaths, add `--smooth 16 --turn 8 --tolerance 40 --sync 0.3`: four-bar smoothing, turning
-points only for changes of 8% or more, no extra detail, and shape preferred over exact timing. The fit reports how
-jumpy the sections are (the largest one-beat change, and how many beats change by more than 15%).
-
-### Dynamics from a recording
-
-The same alignment gives the conductor's dynamic shape: how loud the music is from moment to moment. Measure the
-accompaniment (for a song, Demucs's `no_vocals.wav`) beat by beat, then fit: kplayer renders the piano offline
-through its own synth, compares its loudness with the recording's (each relative to its median), and adjusts a
-level every half bar until they match, keeping your voicing's balance on top.
-
-```sh
-.venv/bin/python tools/dynamics_arc.py /tmp/alignment.json /tmp/sep/htdemucs/music/no_vocals.wav START /tmp/arc.json
-npm run fit-dynamics -- song.mxl song.performer.kplayer.json /tmp/arc.json voicing.json song.performer-dynamics.kplayer.json --part 1
-npm run voice-balance -- song.mxl song.performer-dynamics.kplayer.json   # is the melody on top, bar by bar?
-npm run render-audio -- song.mxl song.performer-dynamics.kplayer.json out.wav --hall   # listen outside the browser
-```
-
-The aligner ([synctoolbox](https://github.com/meinardmueller/synctoolbox)) lines the recording up with the score
-note by note: any key or tuning difference, and silence at either end, are handled. The fitting step then checks
-the result with kplayer's own timing engine and prints how closely it follows the recording. The score must match
-the recording's music: the same cuts, repeats and notes, though a piano reduction of an orchestral piece works fine.
+[kespressivo](https://github.com/katiahayati/kespressivo), kplayer's companion, listens to recordings and writes how the
+performers shape a piece (tempo sections, breaths, dynamics) as performance files to **Import…** here, and voices
+piano parts expressively. It has an example: Strauss's *Gesang der Apollopriesterin* with performances learned from
+two recordings.
 
 ## Sounds
 
