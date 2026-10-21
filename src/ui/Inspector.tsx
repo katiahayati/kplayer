@@ -87,7 +87,7 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
           Breathe after <kbd>B</kbd>
         </button>
       </div>
-      <h3>Tempo section {noteSelection.single && <span className="muted">(shift-click to extend)</span>}</h3>
+      <h3>Tempo change {noteSelection.single && <span className="muted">(shift-click to extend)</span>}</h3>
       <div className="actions grid">
         <button onClick={() => onAddSection('slower')}>Slow down</button>
         <button onClick={() => onAddSection('faster')}>Speed up</button>
@@ -166,7 +166,7 @@ function RampFields({ g, info, set }: { g: RampGesture; info?: RampInfo; set: Se
       <p className="muted">
         Of the basic tempo
         {info && `, from ${Math.round(info.from * 100)}%: ♩ = ${Math.round(info.fromBpm)} → ${Math.round(g.target * info.basicBpm)}`}. Holds it until the next
-        section. Changing or deleting earlier sections doesn't move it.
+        tempo change. Changing or deleting earlier ones doesn't move it.
       </p>
     </>
   );
@@ -274,10 +274,10 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
         <h3>In this performance</h3>
         <button
           className="danger small"
-          title="Remove every breath and section (Ctrl+Z undoes it)"
+          title="Remove every breath and tempo change (Ctrl+Z undoes it)"
           onClick={() => {
             const n = gestures.length;
-            if (confirm(`Remove all ${n} breath${n === 1 ? '' : 's'} and section${n === 1 ? '' : 's'}? Ctrl+Z undoes it.`)) onClearAll();
+            if (confirm(`Remove all ${n} breaths and tempo changes? Ctrl+Z undoes it.`)) onClearAll();
           }}
         >
           Clear all
@@ -285,7 +285,7 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
       </div>
       <div className="list-groups">
         <GroupToggle label="Breaths" title="Every breath on or off" gestures={sorted.filter((g) => g.type === 'breath')} onSetEnabled={onSetEnabled} />
-        <GroupToggle label="Sections" title="Every tempo section on or off" gestures={sorted.filter((g) => g.type !== 'breath')} onSetEnabled={onSetEnabled} />
+        <GroupToggle label="Tempo changes" title="Every tempo change on or off" gestures={sorted.filter((g) => g.type !== 'breath')} onSetEnabled={onSetEnabled} />
       </div>
       <ul ref={listRef}>
         {sorted.flatMap((g, i) => {

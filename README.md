@@ -21,7 +21,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | Click a note, press **B** | Breathe after it: a small broaden from that note to the next one, slowest at the breath |
 | Click a note, shift-click another | Select a section, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
-| Select a breath or section, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
+| Select a breath or tempo change, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
 | **E** | Compare with and without your phrasing |
 | Untick a breath or section in the list | Hear the piece without it, keeping its settings (**Breaths** / **Sections** switch them all) |
 | **D** | Compare with and without dynamics |

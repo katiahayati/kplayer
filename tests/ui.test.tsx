@@ -190,10 +190,10 @@ describe('app', () => {
     await click(group('Breaths'));
     expect(breathRows().every((li) => !li.querySelector('input')!.checked)).toBe(true);
     expect(group('Breaths').indeterminate).toBe(false);
-    expect(group('Sections').checked).toBe(true);
+    expect(group('Tempo changes').checked).toBe(true);
     await click(rowBox('Slow down to 85%'));
-    expect(group('Sections').indeterminate).toBe(true);
-    await click(group('Sections'));
+    expect(group('Tempo changes').indeterminate).toBe(true);
+    await click(group('Tempo changes'));
     await click(group('Breaths'));
     expect(document.querySelectorAll('.band').length).toBe(bands);
 
