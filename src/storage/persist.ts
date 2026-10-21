@@ -1,5 +1,5 @@
 // Autosave of performance documents in IndexedDB (keyed by the score's SHA-256),
-// plus JSON import/export of the sidecar file.
+// plus JSON import/export of the sidecar file, and saving files.
 
 import { emptyDoc, type Anchor, type Gesture, type PerformanceDoc, type RampGesture } from '../perf/types';
 
@@ -85,6 +85,44 @@ function dropLegacyFields(g: Gesture): Gesture {
   if (g.type !== 'breath') return g;
   const { beforeQ: _before, afterQ: _after, ...rest } = g as Gesture & { beforeQ?: number; afterQ?: number };
   return rest;
+}
+
+export interface FileKind {
+  /** Shown in the Save dialog's file type list, e.g. "kplayer piece". */
+  description: string;
+  mime: string;
+  extension: string;
+}
+
+type SaveFilePicker = (options: {
+  suggestedName?: string;
+  id?: string;
+  types?: { description: string; accept: Record<string, string[]> }[];
+}) => Promise<{ createWritable(): Promise<{ write(data: Blob): Promise<void>; close(): Promise<void> }> }>;
+
+/**
+ * Saves a file where you choose: with the system's Save dialog where the browser offers one to web
+ * pages (Chrome and Edge on a computer), so you pick the folder and name and can replace an older
+ * copy; elsewhere as a download. Call it straight from a click. Returns false if you cancel.
+ */
+export async function saveFile(data: BlobPart, name: string, kind: FileKind): Promise<boolean> {
+  const blob = new Blob([data], { type: kind.mime });
+  const picker = (window as unknown as { showSaveFilePicker?: SaveFilePicker }).showSaveFilePicker;
+  if (picker) {
+    try {
+      // The id makes the dialog open where you last saved from kplayer.
+      const handle = await picker({ suggestedName: name, id: 'kplayer', types: [{ description: kind.description, accept: { [kind.mime]: [kind.extension] } }] });
+      const out = await handle.createWritable();
+      await out.write(blob);
+      await out.close();
+      return true;
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return false;
+      console.warn('Save dialog failed; downloading instead:', e);
+    }
+  }
+  downloadBlob(blob, name, kind.mime);
+  return true;
 }
 
 export function downloadBlob(data: BlobPart, name: string, type: string): void {

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { ScorePart } from '../perf/render';
 import type { PartSetting } from '../perf/types';
+import { OPEN_ACCEPT } from '../storage/piece';
 
 interface Props {
   title?: string;
@@ -23,6 +24,7 @@ interface Props {
   canRedo: boolean;
   onOpen: (file: File) => void;
   onImport: (file: File) => void;
+  onSavePiece: () => void;
   onExportJson: () => void;
   onExportMidi: () => void;
   onPlayPause: () => void;
@@ -44,8 +46,10 @@ export function Transport(p: Props) {
     <header className="transport">
       <div className="row">
         <strong className="brand">kplayer</strong>
-        <button onClick={() => openRef.current?.click()}>Open score…</button>
-        <input ref={openRef} type="file" accept=".musicxml,.xml,.mxl" hidden onChange={(e) => pickFile(e, p.onOpen)} />
+        <button onClick={() => openRef.current?.click()} title="Open a score (MusicXML) or a kplayer piece">
+          Open…
+        </button>
+        <input ref={openRef} type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => pickFile(e, p.onOpen)} />
         {p.title && <span className="title">{p.title}</span>}
         <span className="spacer" />
         {p.canPlay && (
@@ -58,6 +62,9 @@ export function Transport(p: Props) {
             </button>
             <button onClick={() => importRef.current?.click()}>Import…</button>
             <input ref={importRef} type="file" accept=".json" hidden onChange={(e) => pickFile(e, p.onImport)} />
+            <button onClick={p.onSavePiece} title="One .kplayer file with the score and your phrasing, voicing and dynamics: open it to get everything back">
+              Save piece…
+            </button>
             <button onClick={p.onExportJson} title="Save the performance as a sidecar JSON file">
               Export JSON
             </button>

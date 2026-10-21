@@ -245,5 +245,48 @@ describe('app', () => {
     await act(async () => void importInput.dispatchEvent(new Event('change', { bubbles: true })));
     await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
     expect(text()).toContain('Right hand');
+
+    // Save piece… writes one file with the score and all of this. Without a Save dialog (Firefox, phones)
+    // it downloads; where the browser offers one, it asks where to save.
+    let downloaded: Blob | undefined;
+    URL.createObjectURL = (b: Blob) => ((downloaded = b), 'blob:piece');
+    URL.revokeObjectURL = () => {};
+    await click(button('Save piece…'));
+    await vi.waitFor(() => expect(downloaded).toBeDefined());
+    // (jsdom's Blob has no text().)
+    const pieceText = await new Promise<string>((done) => {
+      const r = new FileReader();
+      r.onload = () => done(r.result as string);
+      r.readAsText(downloaded!);
+    });
+    expect(JSON.parse(pieceText)).toMatchObject({ kplayer: 'piece', score: { name: 'song.musicxml' } });
+    const written: Blob[] = [];
+    const picked: unknown[] = [];
+    (window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = async (o: unknown) => {
+      picked.push(o);
+      return { createWritable: async () => ({ write: async (b: Blob) => void written.push(b), close: async () => {} }) };
+    };
+    await click(button('Export JSON'));
+    await vi.waitFor(() => expect(written).toHaveLength(1));
+    expect(picked[0]).toMatchObject({ suggestedName: 'song.kplayer.json' });
+    delete (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+
+    // Opening the piece brings everything back, after it's all been cleared.
+    await click(button('Clear all'));
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    const voicingBox = [...document.querySelectorAll<HTMLInputElement>('.dynamics .voices input[type=checkbox]')][0];
+    await click(voicingBox); // switch the voice off, to see it come back on
+    expect(document.querySelector('.list')).toBeNull();
+    const openInput = document.querySelector<HTMLInputElement>('.transport input[type=file][accept*=".kplayer"]')!;
+    Object.defineProperty(openInput, 'files', { value: [new NodeFile([pieceText], 'song.kplayer')], configurable: true });
+    await act(async () => void openInput.dispatchEvent(new Event('change', { bubbles: true })));
+    await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
+    expect(document.querySelector<HTMLInputElement>('.dynamics .voices input[type=checkbox]')!.checked).toBe(true);
+    expect(document.querySelector('.error')).toBeNull();
+
+    // Opening a phrasing file on its own says what to do instead.
+    Object.defineProperty(openInput, 'files', { value: [new NodeFile([JSON.stringify(phrasing)], 'phrasing.kplayer.json')], configurable: true });
+    await act(async () => void openInput.dispatchEvent(new Event('change', { bubbles: true })));
+    await vi.waitFor(() => expect(document.querySelector('.error')?.textContent).toContain('open the score first, then Import'));
   });
 });

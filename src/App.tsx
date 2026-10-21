@@ -9,7 +9,8 @@ import { buildTimeMap, sectionLevelAt, type TimeMap, type TimingGesture } from '
 import { emptyDoc, type Anchor, type Gesture, type PartSetting, type PerformanceDoc } from './perf/types';
 import { ScoreView, type BreathMarker } from './score/ScoreView';
 import { loadScore, type LoadedScore } from './score/verovio';
-import { downloadBlob, loadSaved, parseDoc, save } from './storage/persist';
+import { loadSaved, parseDoc, save, saveFile, type FileKind } from './storage/persist';
+import { looksLikePiece, OPEN_ACCEPT, PIECE_EXTENSION, readPiece, writePiece } from './storage/piece';
 import { DynamicsPanel } from './ui/DynamicsPanel';
 import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
@@ -21,6 +22,9 @@ const SOUND_BANKS: SoundBankSource[] = [
   { id: 'general', url: `${import.meta.env.BASE_URL}soundfonts/MuseScore_General.sf3` },
 ];
 const DEMO_URL = `${import.meta.env.BASE_URL}demo/song.musicxml`;
+const PIECE_KIND: FileKind = { description: 'kplayer piece', mime: 'application/json', extension: PIECE_EXTENSION };
+const JSON_KIND: FileKind = { description: 'kplayer phrasing and dynamics', mime: 'application/json', extension: '.json' };
+const MIDI_KIND: FileKind = { description: 'MIDI file', mime: 'audio/midi', extension: '.mid' };
 
 /** How much concert hall the piano plays in: a listening setting, remembered in this browser. */
 interface HallSetting {
@@ -257,10 +261,22 @@ export default function App() {
       setError(undefined);
       setStatus('Reading score…');
       try {
-        const s = await loadScore(file);
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        const piece = looksLikePiece(bytes) ? readPiece(new TextDecoder().decode(bytes)) : undefined;
+        if (!piece && new TextDecoder().decode(bytes.subarray(0, 20)).trimStart().startsWith('{')) {
+          throw new Error(`${file.name} has your phrasing but not the score: open the score first, then Import… this file.`);
+        }
+        const s = await loadScore(piece?.score.name ?? file.name, piece?.score.bytes ?? bytes);
         const saved = await loadSaved(s.sha256);
         player.current?.pause();
-        history.reset(saved ?? { ...emptyDoc(), score: { name: s.name, sha256: s.sha256 } });
+        const own = { name: s.name, sha256: s.sha256 };
+        if (piece && saved && JSON.stringify({ ...saved, score: own }) !== JSON.stringify({ ...piece.performance, score: own })) {
+          // The piece's performance, one Ctrl+Z away from the one this browser had saved for this score.
+          history.reset(saved);
+          history.set({ ...piece.performance, score: own });
+        } else {
+          history.reset(piece ? { ...piece.performance, score: own } : (saved ?? { ...emptyDoc(), score: own }));
+        }
         setSelection({ kind: 'none' });
         setLoopGestureId(undefined);
         pendingQ.current = 0;
@@ -465,11 +481,16 @@ export default function App() {
     else setLoopGestureId(undefined);
   }, [loopGestureId, selection]);
 
-  const exportJson = () => score && downloadBlob(JSON.stringify(doc, null, 2), `${baseName(score.name)}.kplayer.json`, 'application/json');
+  const saveAs = (data: BlobPart, name: string, kind: FileKind) =>
+    void saveFile(data, name, kind).catch((e) => setError(`Couldn't save ${name}: ${(e as Error).message}`));
+  /** One file with the score and everything added to it: opening it gets it all back. */
+  const savePiece = () =>
+    score && saveAs(writePiece({ title: score.title, score, performance: doc }), `${baseName(score.name)}${PIECE_EXTENSION}`, PIECE_KIND);
+  const exportJson = () => score && saveAs(JSON.stringify(doc, null, 2), `${baseName(score.name)}.kplayer.json`, JSON_KIND);
   const exportMidi = () => {
     if (!score || !map) return;
     const bytes = renderPerformanceMidi(shaped ?? score.events, map, { parts: doc.parts });
-    downloadBlob(bytes as Uint8Array<ArrayBuffer>, `${baseName(score.name)}.performance.mid`, 'audio/midi');
+    saveAs(bytes as Uint8Array<ArrayBuffer>, `${baseName(score.name)}.performance.mid`, MIDI_KIND);
   };
   const importVoicing = async (file: File) => {
     try {
@@ -577,6 +598,7 @@ export default function App() {
         canRedo={history.canRedo}
         onOpen={openFile}
         onImport={importJson}
+        onSavePiece={savePiece}
         onExportJson={exportJson}
         onExportMidi={exportMidi}
         onPlayPause={togglePlay}
@@ -658,11 +680,11 @@ export default function App() {
       ) : (
         <div className="empty">
           <h1>kplayer</h1>
-          <p>Open a MusicXML score (.musicxml, .xml or .mxl), or drop one here.</p>
+          <p>Open a MusicXML score (.musicxml, .xml or .mxl) or a kplayer piece (.kplayer), or drop one here.</p>
           <p>
             <label className="button primary">
-              Open score…
-              <input type="file" accept=".musicxml,.xml,.mxl" hidden onChange={(e) => e.target.files?.[0] && openFile(e.target.files[0])} />
+              Open…
+              <input type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => e.target.files?.[0] && openFile(e.target.files[0])} />
             </label>{' '}
             <button onClick={openDemo}>Try the demo song</button>
           </p>

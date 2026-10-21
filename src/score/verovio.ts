@@ -29,6 +29,8 @@ export interface LoadedScore extends RenderedScore {
   name: string;
   sha256: string;
   title: string;
+  /** The score file as opened, to save with the performance in a piece file. */
+  bytes: Uint8Array;
 }
 
 export const VEROVIO_OPTIONS = {
@@ -53,22 +55,22 @@ function getToolkit(): Promise<VerovioToolkit> {
   return toolkit;
 }
 
-export async function loadScore(file: File): Promise<LoadedScore> {
+/** Loads a MusicXML score (.musicxml / .xml, or compressed .mxl) from the file's contents. */
+export async function loadScore(name: string, bytes: Uint8Array): Promise<LoadedScore> {
   const tk = await getToolkit();
-  const buffer = await file.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
   const isZip = bytes[0] === 0x50 && bytes[1] === 0x4b; // "PK": compressed .mxl
 
   tk.setOptions(VEROVIO_OPTIONS);
-  const ok = isZip ? tk.loadZipDataBuffer(buffer) : tk.loadData(new TextDecoder().decode(bytes));
-  if (!ok) throw new Error(`Verovio couldn't read ${file.name}. Is it MusicXML (.musicxml, .xml or .mxl)?`);
+  const ok = isZip ? tk.loadZipDataBuffer(bytes.slice().buffer as ArrayBuffer) : tk.loadData(new TextDecoder().decode(bytes));
+  if (!ok) throw new Error(`Verovio couldn't read ${name}. Is it MusicXML (.musicxml, .xml or .mxl)?`);
 
   const rendered = renderLoaded(tk);
   return {
     ...rendered,
-    name: file.name,
+    name,
     sha256: await sha256(bytes),
-    title: titleFrom(rendered.pages[0]) ?? file.name.replace(/\.[^.]+$/, ''),
+    title: titleFrom(rendered.pages[0]) ?? name.replace(/\.[^.]+$/, ''),
+    bytes,
   };
 }
 
