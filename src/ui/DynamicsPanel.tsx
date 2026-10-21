@@ -1,5 +1,7 @@
 import { useRef } from 'react';
+import { Upload } from 'lucide-react';
 import type { DynamicsDoc, NoteSelector, PulseRule, VoiceRule } from '../perf/types';
+import { Slider, Switch } from './controls';
 import { anchorLabel } from './Inspector';
 
 interface Props {
@@ -29,12 +31,13 @@ export function DynamicsPanel(p: Props) {
     p.onChange({ ...d!, pulse: pulses.map((r) => (r.id === id ? { ...r, ...patch } : r)) }, `pulse:${id}:${field}`);
   const noteVoice = p.note?.voice ? voices.find((v) => v.id === p.note!.voice) : undefined;
 
+  const db = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
   return (
-    <section className="panel dynamics">
+    <section className="card dynamics">
       <div className="list-head">
-        <h3>Dynamics{p.on ? '' : ' (off)'}</h3>
-        <button className="small" onClick={() => input.current?.click()} title="Take the voicing from a performance file, keeping your tempo phrasing">
-          Import voicing…
+        <h3>Voicing{p.on ? '' : ' (dynamics off)'}</h3>
+        <button className="small" onClick={() => input.current?.click()} title="Take the voicing from a performance or voicing file, keeping your phrasing">
+          <Upload size={14} /> Import voicing…
         </button>
         <input
           ref={input}
@@ -49,40 +52,28 @@ export function DynamicsPanel(p: Props) {
         />
       </div>
       {p.note && (
-        <p className="muted">
+        <p className="selected-note">
           Selected note: {noteVoice ? noteVoice.name : 'no voice'}, velocity {Math.round(p.note.velocity * 127)}
         </p>
       )}
       {!voices.length ? (
-        <p className="muted">The score's written dynamics play. A voicing brings some notes forward and keeps others back.</p>
+        <p className="note">The score's written dynamics play. A voicing brings some notes forward and keeps others back.</p>
       ) : (
         <ul className="voices">
           {voices.map((v) => (
             <li key={v.id} className={`${v.enabled === false ? 'off' : ''}${p.focus === v.id ? ' focus' : ''}`}>
               <div className="voice-head">
-                <input
-                  type="checkbox"
-                  checked={v.enabled !== false}
-                  onChange={(e) => set(v.id, { enabled: e.target.checked }, 'enabled')}
-                  title="On / off"
-                />
+                <Switch checked={v.enabled !== false} onChange={(on) => set(v.id, { enabled: on }, 'enabled')} title="On / off" ariaLabel={`${v.name} on`} />
                 <button className="voice-name" onClick={() => p.onFocus(p.focus === v.id ? undefined : v.id)} title="Show its notes in the score">
                   {v.name}
                 </button>
-                <label className="check" title="Sound slightly ahead, as a pianist brings out a melody">
+                <label className="chip-toggle" title="Sound slightly ahead, as a pianist brings out a melody">
                   <input type="checkbox" checked={!!v.lead} onChange={(e) => set(v.id, { lead: e.target.checked }, 'lead')} />
                   ahead
                 </label>
               </div>
-              <div className="muted voice-what">{describe(v, p.partNames)}</div>
-              <label className="slider">
-                <span>Level</span>
-                <input type="range" min={-24} max={12} step={1} value={v.gainDb} onChange={(e) => set(v.id, { gainDb: Number(e.target.value) }, 'gain')} />
-                <output>
-                  {v.gainDb > 0 ? '+' : ''}
-                  {v.gainDb} dB
-                </output>
-              </label>
+              <div className="voice-what">{describe(v, p.partNames)}</div>
+              <Slider label="Level" value={v.gainDb} min={-24} max={12} step={1} unit=" dB" format={db} onChange={(x) => set(v.id, { gainDb: x }, 'gain')} />
             </li>
           ))}
         </ul>
@@ -94,47 +85,51 @@ export function DynamicsPanel(p: Props) {
             {pulses.map((r) => (
               <li key={r.id} className={r.enabled === false ? 'off' : ''}>
                 <div className="voice-head">
-                  <input type="checkbox" checked={r.enabled !== false} onChange={(e) => setPulse(r.id, { enabled: e.target.checked }, 'enabled')} title="On / off" />
+                  <Switch checked={r.enabled !== false} onChange={(on) => setPulse(r.id, { enabled: on }, 'enabled')} title="On / off" ariaLabel={`${r.name ?? 'Pulse'} on`} />
                   <span className="voice-name">{r.name ?? 'Pulse'}</span>
                 </div>
-                <div className="muted voice-what">{describePulse(r, p.partNames)}</div>
-                <label className="slider">
-                  <span>Accent</span>
-                  <input type="range" min={-6} max={9} step={0.5} value={r.gainDb} onChange={(e) => setPulse(r.id, { gainDb: Number(e.target.value) }, 'gain')} />
-                  <output>
-                    {r.gainDb > 0 ? '+' : ''}
-                    {r.gainDb} dB
-                  </output>
-                </label>
+                <div className="voice-what">{describePulse(r, p.partNames)}</div>
+                <Slider label="Accent" value={r.gainDb} min={-6} max={9} step={0.5} unit=" dB" format={db} onChange={(x) => setPulse(r.id, { gainDb: x }, 'gain')} />
               </li>
             ))}
           </ul>
         </>
       )}
-      {(d?.pedal ?? []).map((span) => (
-        <label key={span.id} className="check pedal" title="Sustain pedal over this stretch">
-          <input
-            type="checkbox"
-            checked={span.enabled !== false}
-            onChange={(e) => p.onChange({ ...d!, pedal: d!.pedal!.map((s) => (s.id === span.id ? { ...s, enabled: e.target.checked } : s)) }, `pedal:${span.id}`)}
-          />
-          Pedal, {PEDAL_MODES[span.mode]}
-          {span.every && span.every !== 1 && span.mode !== 'bar' && span.mode !== 'off' ? ` (by the ${lengthName(span.every).replace(/^an? /, '')})` : ''}, {anchorLabel(span.from)} –{' '}
-          {anchorLabel(span.to)}
-        </label>
-      ))}
+      {(d?.pedal ?? []).length > 0 && (
+        <>
+          <h4>Pedal</h4>
+          <ul className="pedals">
+            {(d?.pedal ?? []).map((span) => (
+              <li key={span.id}>
+                <Switch
+                  checked={span.enabled !== false}
+                  title="Sustain pedal over this stretch"
+                  ariaLabel="Pedal on"
+                  onChange={(on) => p.onChange({ ...d!, pedal: d!.pedal!.map((s) => (s.id === span.id ? { ...s, enabled: on } : s)) }, `pedal:${span.id}`)}
+                  label={
+                    <span>
+                      {PEDAL_MODES[span.mode]}
+                      {span.every && span.every !== 1 && span.mode !== 'bar' && span.mode !== 'off' ? ` (by the ${lengthName(span.every).replace(/^an? /, '')})` : ''}
+                      <span className="muted">
+                        {' '}
+                        · {anchorLabel(span.from)} – {anchorLabel(span.to)}
+                      </span>
+                    </span>
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {voices.some((v) => v.lead) && (
-        <label className="slider">
-          <span>Ahead by</span>
-          <input type="range" min={0} max={50} step={5} value={d?.leadMs ?? 20} onChange={(e) => p.onChange({ ...d!, leadMs: Number(e.target.value) }, 'leadMs')} />
-          <output>{d?.leadMs ?? 20} ms</output>
-        </label>
+        <Slider label="Ahead by" value={d?.leadMs ?? 20} min={0} max={50} step={5} unit=" ms" onChange={(x) => p.onChange({ ...d!, leadMs: x }, 'leadMs')} />
       )}
     </section>
   );
 }
 
-const PEDAL_MODES = { harmony: 'changed with the harmony', beat: 'changed every beat', bar: 'changed every bar', off: 'off' } as const;
+const PEDAL_MODES = { harmony: 'Changed with the harmony', beat: 'Changed every beat', bar: 'Changed every bar', off: 'Off' } as const;
 
 /** "On beats 1 and 4: Piano, lower staff, bottom note; fading over half the beat" */
 function describePulse(r: PulseRule, partNames: string[]): string {

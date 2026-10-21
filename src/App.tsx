@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FolderOpen } from 'lucide-react';
 import { Player, unlockAudio, type SoundBankSource } from './audio/player';
 import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
@@ -14,7 +15,7 @@ import { looksLikePiece, OPEN_ACCEPT, PIECE_EXTENSION, readPiece, writePiece } f
 import { DynamicsPanel } from './ui/DynamicsPanel';
 import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
-import { Transport } from './ui/Transport';
+import { PlayerBar, TopBar } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
 
 const SOUND_BANKS: SoundBankSource[] = [
@@ -537,6 +538,9 @@ export default function App() {
     } else if (mod && e.key.toLowerCase() === 'y') {
       e.preventDefault();
       history.redo();
+    } else if (mod && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      savePiece();
     } else if (mod) {
       return;
     } else if (e.key === 'b' || e.key === 'B') {
@@ -579,21 +583,9 @@ export default function App() {
         if (f) void openFile(f);
       }}
     >
-      <Transport
+      <TopBar
         title={score?.title}
-        playing={playing}
-        canPlay={!!score}
-        position={position}
-        bpm={map?.bpmAt(playQ)}
-        bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
-        status={status ?? soundStatus}
-        expressive={expressive}
-        dynamics={dynamicsOn}
-        hall={hall}
-        tempoFactor={doc.tempoFactor}
-        parts={score?.events.parts ?? []}
-        partSettings={doc.parts}
-        loopLabel={loopLabel}
+        open={!!score}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
         onOpen={openFile}
@@ -601,14 +593,6 @@ export default function App() {
         onSavePiece={savePiece}
         onExportJson={exportJson}
         onExportMidi={exportMidi}
-        onPlayPause={togglePlay}
-        onRewind={() => seekTo(0)}
-        onExpressive={setExpressive}
-        onDynamics={setDynamicsOn}
-        onHall={setHall}
-        onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
-        onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
-        onStopLoop={() => setLoopGestureId(undefined)}
         onUndo={history.undo}
         onRedo={history.redo}
       />
@@ -653,6 +637,7 @@ export default function App() {
               picking={pickField}
               onPick={(field) => setPicking(field && selectedGesture ? { gestureId: selectedGesture.id, field } : undefined)}
               onSelect={(id) => setSelection({ kind: 'gesture', id })}
+              hasDynamics={!!doc.dynamics?.voices.length}
             >
               <DynamicsPanel
                 dynamics={doc.dynamics}
@@ -666,32 +651,63 @@ export default function App() {
               />
             </Inspector>
           </main>
-          <TempoLane
-            map={map}
-            index={score.index}
-            timing={allTiming}
-            selectedId={selection.kind === 'gesture' ? selection.id : undefined}
-            playQ={playQ}
-            loop={loop}
-            onSeek={(q) => seekTo(q)}
-            onSelect={(id) => setSelection({ kind: 'gesture', id })}
-          />
+          <footer className="dock">
+            <PlayerBar
+              playing={playing}
+              position={position}
+              bpm={map?.bpmAt(playQ)}
+              bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
+              status={status ?? soundStatus}
+              expressive={expressive}
+              dynamics={dynamicsOn}
+              hall={hall}
+              tempoFactor={doc.tempoFactor}
+              parts={score.events.parts}
+              partSettings={doc.parts}
+              loopLabel={loopLabel}
+              onPlayPause={togglePlay}
+              onRewind={() => seekTo(0)}
+              onExpressive={setExpressive}
+              onDynamics={setDynamicsOn}
+              onHall={setHall}
+              onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
+              onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
+              onStopLoop={() => setLoopGestureId(undefined)}
+            />
+            <TempoLane
+              map={map}
+              index={score.index}
+              timing={allTiming}
+              selectedId={selection.kind === 'gesture' ? selection.id : undefined}
+              playQ={playQ}
+              loop={loop}
+              onSeek={(q) => seekTo(q)}
+              onSelect={(id) => setSelection({ kind: 'gesture', id })}
+            />
+          </footer>
         </>
       ) : (
         <div className="empty">
-          <h1>kplayer</h1>
-          <p>Open a MusicXML score (.musicxml, .xml or .mxl) or a kplayer piece (.kplayer), or drop one here.</p>
-          <p>
-            <label className="button primary">
-              Open…
+          <div className="welcome">
+            <div className="logo big" aria-hidden>
+              k
+            </div>
+            <h1>kplayer</h1>
+            <p className="tagline">Rehearse with a score that breathes with you: breaths, give and take in the tempo, and dynamics, played on a concert grand.</p>
+            <label className="dropzone">
               <input type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => e.target.files?.[0] && openFile(e.target.files[0])} />
-            </label>{' '}
-            <button onClick={openDemo}>Try the demo song</button>
-          </p>
-          {(status ?? soundStatus) && <p className="muted">{status ?? soundStatus}</p>}
-          <p className="credits muted">
-            Piano: <a href="https://archive.org/details/SalamanderGrandPianoV3">Salamander Grand Piano</a> by Alexander Holm (CC-BY 3.0).
-            Other instruments: MuseScore General (MIT).
+              <FolderOpen size={28} />
+              <strong>Open a score</strong>
+              <span>MusicXML (.musicxml, .xml, .mxl) from MuseScore or Sibelius, or a kplayer piece (.kplayer). Or drop one here.</span>
+            </label>
+            <button className="link" onClick={openDemo}>
+              or try the demo song
+            </button>
+            {(status ?? soundStatus) && <p className="status">{status ?? soundStatus}</p>}
+          </div>
+          <p className="credits">
+            Piano: <a href="https://archive.org/details/SalamanderGrandPianoV3">Salamander Grand Piano</a> by Alexander Holm (CC-BY 3.0). Other instruments:
+            MuseScore General (MIT).
           </p>
         </div>
       )}

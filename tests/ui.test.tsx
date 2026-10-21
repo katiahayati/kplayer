@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // Smoke test of the whole app: load the fixture through the file picker, then
 // use the score's breath mark, add a breath by clicking a note and pressing B,
-// and add a tempo section with shift-click. Audio is never started.
+// and add a tempo change with shift-click. Audio is never started.
 // (jsdom rather than happy-dom: happy-dom stops parsing SVG at Verovio's <style>.)
 
 import { File as NodeFile } from 'node:buffer';
@@ -31,7 +31,7 @@ describe('app', () => {
     const host = document.createElement('div');
     document.body.append(host);
     await act(async () => createRoot(host).render(<App />));
-    expect(text()).toContain('Open a MusicXML score');
+    expect(text()).toContain('Open a score');
 
     const input = document.querySelector<HTMLInputElement>('.empty input[type=file]')!;
     // jsdom's File has no arrayBuffer(); Node's does.
@@ -61,7 +61,7 @@ describe('app', () => {
     const voiceBar1 = document.querySelectorAll('g.measure')[0].querySelectorAll('g.staff')[0].querySelectorAll('g.note');
     await click(voiceBar1[0]);
     await click(voiceBar3[0], { shiftKey: true });
-    expect(text()).toContain('Section');
+    expect(text()).toContain('Passage');
     await click(button('Broaden'));
     expect(text()).toContain('Broaden · 10%');
     expect(document.querySelectorAll('.svg-pages g.in-range').length).toBeGreaterThan(0);
@@ -182,7 +182,7 @@ describe('app', () => {
     expect(document.querySelectorAll('.band').length).toBeLessThan(bands);
     expect(document.querySelectorAll('.breath-marker.off').length).toBe(1);
     expect(group('Breaths').indeterminate).toBe(true);
-    expect(text()).toContain('Breaths(1 of 2 on)');
+    expect(text()).toContain('Breaths 1 of 2 on');
     // The group box turns them all back on, then all off; the sections stay as they were.
     await click(group('Breaths'));
     expect(breathRows().every((li) => li.querySelector('input')!.checked)).toBe(true);
@@ -217,13 +217,18 @@ describe('app', () => {
 
     // Import a voicing (only the dynamics), see its notes, and how loud a selected note plays.
     const gesturesBefore = document.querySelectorAll('.list li button').length;
+    expect(gesturesBefore).toBeGreaterThan(0);
     const voicing = { dynamics: { voices: [{ id: 'rh', name: 'Right hand', select: { part: 1, staff: [1] }, gainDb: -6 }] } };
+    const tab = (name: 'phrasing' | 'dynamics') => click(document.querySelector(`[role=tab][data-tab=${name}]`)!);
+    await tab('dynamics');
     const voicingInput = document.querySelector<HTMLInputElement>('.dynamics input[type=file]')!;
     Object.defineProperty(voicingInput, 'files', { value: [new NodeFile([JSON.stringify(voicing)], 'voicing.json')], configurable: true });
     await act(async () => void voicingInput.dispatchEvent(new Event('change', { bubbles: true })));
     await vi.waitFor(() => expect(text()).toContain('Right hand'));
     expect(text()).toContain('Piano, upper staff');
+    await tab('phrasing');
     expect(document.querySelectorAll('.list li button').length).toBe(gesturesBefore); // the phrasing is kept
+    await tab('dynamics');
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     await click(button('Right hand'));
     const lit = document.querySelectorAll('.svg-pages g.in-range');
@@ -240,18 +245,24 @@ describe('app', () => {
 
     // Importing phrasing alone (breaths, no dynamics) keeps the voicing.
     const phrasing = { version: 2, tempoFactor: 1, parts: {}, gestures: [{ id: 'b9', type: 'breath', at: { measureIndex: 1, offsetQ: 2 }, extraMs: 300, beforeBeats: 1, afterBeats: 0.5 }] };
-    const importInput = document.querySelector<HTMLInputElement>('.transport input[accept=".json"]')!;
+    const importInput = document.querySelector<HTMLInputElement>('.topbar input[accept=".json"]')!;
     Object.defineProperty(importInput, 'files', { value: [new NodeFile([JSON.stringify(phrasing)], 'phrasing.kplayer.json')], configurable: true });
     await act(async () => void importInput.dispatchEvent(new Event('change', { bubbles: true })));
+    await tab('phrasing');
     await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
+    await tab('dynamics');
     expect(text()).toContain('Right hand');
+    await tab('phrasing');
 
     // Save piece… writes one file with the score and all of this. Without a Save dialog (Firefox, phones)
     // it downloads; where the browser offers one, it asks where to save.
     let downloaded: Blob | undefined;
     URL.createObjectURL = (b: Blob) => ((downloaded = b), 'blob:piece');
     URL.revokeObjectURL = () => {};
+    const fileMenu = () => click(document.querySelector('.file-menu .popover-button')!);
+    await fileMenu();
     await click(button('Save piece…'));
+    expect(document.querySelector('.file-menu .menu')).toBeNull(); // picking an item closes the menu
     await vi.waitFor(() => expect(downloaded).toBeDefined());
     // (jsdom's Blob has no text().)
     const pieceText = await new Promise<string>((done) => {
@@ -266,6 +277,7 @@ describe('app', () => {
       picked.push(o);
       return { createWritable: async () => ({ write: async (b: Blob) => void written.push(b), close: async () => {} }) };
     };
+    await fileMenu();
     await click(button('Export JSON'));
     await vi.waitFor(() => expect(written).toHaveLength(1));
     expect(picked[0]).toMatchObject({ suggestedName: 'song.kplayer.json' });
@@ -274,13 +286,17 @@ describe('app', () => {
     // Opening the piece brings everything back, after it's all been cleared.
     await click(button('Clear all'));
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    expect(document.querySelector('.list')).toBeNull();
+    await tab('dynamics');
     const voicingBox = [...document.querySelectorAll<HTMLInputElement>('.dynamics .voices input[type=checkbox]')][0];
     await click(voicingBox); // switch the voice off, to see it come back on
-    expect(document.querySelector('.list')).toBeNull();
-    const openInput = document.querySelector<HTMLInputElement>('.transport input[type=file][accept*=".kplayer"]')!;
+    expect(voicingBox.checked).toBe(false);
+    await tab('phrasing');
+    const openInput = document.querySelector<HTMLInputElement>('.topbar input[type=file][accept*=".kplayer"]')!;
     Object.defineProperty(openInput, 'files', { value: [new NodeFile([pieceText], 'song.kplayer')], configurable: true });
     await act(async () => void openInput.dispatchEvent(new Event('change', { bubbles: true })));
     await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
+    await tab('dynamics');
     expect(document.querySelector<HTMLInputElement>('.dynamics .voices input[type=checkbox]')!.checked).toBe(true);
     expect(document.querySelector('.error')).toBeNull();
 

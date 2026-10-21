@@ -1,8 +1,10 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronUp, MousePointerClick, PlayCircle, Repeat, Trash2 } from 'lucide-react';
 import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors';
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
+import { Slider, Switch } from './controls';
 
 export type SectionKind = 'slower' | 'faster' | 'broaden' | 'push' | 'aTempo';
 /** Where a Slow down / Speed up starts from, for showing it in tempo terms. */
@@ -44,16 +46,56 @@ interface Props {
   picking?: PickField;
   onPick: (field?: PickField) => void;
   onSelect: (id: string) => void;
-  /** Panels shown after the gesture list. */
+  /** The Dynamics tab. */
   children?: ReactNode;
+  /** Whether there's a voicing, to mark the Dynamics tab. */
+  hasDynamics?: boolean;
 }
 
+type Tab = 'phrasing' | 'dynamics';
+
 export function Inspector(p: Props) {
+  const [tab, setTab] = useState<Tab>('phrasing');
+  /** Folded away to its tabs (narrow windows only). */
+  const [collapsed, setCollapsed] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 600px)').matches);
+  // Picking a breath or tempo change (in the score or the tempo lane) shows it.
+  useEffect(() => {
+    if (p.gesture) setTab('phrasing');
+  }, [p.gesture?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tabButton = (id: Tab, label: string, count?: ReactNode) => (
+    <button
+      role="tab"
+      data-tab={id}
+      aria-selected={tab === id}
+      className={tab === id ? 'selected' : ''}
+      onClick={() => {
+        setTab(id);
+        setCollapsed(false);
+      }}
+    >
+      {label}
+      {count}
+    </button>
+  );
   return (
-    <aside className="inspector">
-      {p.gesture ? <GestureEditor {...p} gesture={p.gesture} /> : <SelectionActions {...p} />}
-      <GestureList {...p} />
-      {p.children}
+    <aside className={`inspector${collapsed ? ' collapsed' : ''}`}>
+      <div className="tabs" role="tablist">
+        {tabButton('phrasing', 'Phrasing', p.gestures.length ? <span className="count">{p.gestures.length}</span> : undefined)}
+        {tabButton('dynamics', 'Dynamics', p.hasDynamics ? <span className="dot" /> : undefined)}
+        <button className="icon collapse" onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Show the panel' : 'Hide the panel'} title={collapsed ? 'Show the panel' : 'Hide the panel'}>
+          {collapsed ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+      </div>
+      {tab === 'phrasing' ? (
+        <div className="tab-body" role="tabpanel">
+          {p.gesture ? <GestureEditor {...p} gesture={p.gesture} /> : <SelectionActions {...p} />}
+          <GestureList {...p} />
+        </div>
+      ) : (
+        <div className="tab-body" role="tabpanel">
+          {p.children}
+        </div>
+      )}
     </aside>
   );
 }
@@ -61,39 +103,65 @@ export function Inspector(p: Props) {
 function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMarks, onAddBreath, onAddSection }: Props) {
   if (!noteSelection) {
     return (
-      <section className="panel hint">
+      <section className="card hint">
         <h2>Shape the performance</h2>
         {unusedBreathMarks > 0 && (
-          <div className="actions">
-            <button className="primary" onClick={onImportBreathMarks}>
-              Use the score's {unusedBreathMarks} breath mark{unusedBreathMarks > 1 ? 's' : ''}
-            </button>
-          </div>
+          <button className="primary wide" onClick={onImportBreathMarks}>
+            Use the score's {unusedBreathMarks} breath mark{unusedBreathMarks > 1 ? 's' : ''}
+          </button>
         )}
-        <p>Click a note, then press <kbd>B</kbd> to breathe after it.</p>
-        <p>Click a note and shift-click another to mark a section that slows down, speeds up, broadens or pushes forward.</p>
-        <p>Double-click a note to play from there.</p>
+        <ol className="steps">
+          <li>
+            <span className="step-icon breath">,</span>
+            <span>
+              Click a note, then press <kbd>B</kbd> to breathe after it.
+            </span>
+          </li>
+          <li>
+            <span className="step-icon">
+              <MousePointerClick size={16} />
+            </span>
+            <span>Click a note and shift-click another to slow down, speed up, broaden or push forward the passage between.</span>
+          </li>
+          <li>
+            <span className="step-icon">
+              <PlayCircle size={16} />
+            </span>
+            <span>Double-click a note to play from there.</span>
+          </li>
+        </ol>
       </section>
     );
   }
+  const kinds: [SectionKind, string][] = [
+    ['slower', 'Slow down'],
+    ['faster', 'Speed up'],
+    ['broaden', 'Broaden'],
+    ['push', 'Push forward'],
+    ['aTempo', 'A tempo'],
+  ];
   return (
-    <section className="panel">
-      <h2>{noteSelection.single ? 'Note' : 'Section'}</h2>
-      <p className="muted">
-        {noteSelection.single ? anchorLabel(noteSelection.to) : `${anchorLabel(noteSelection.from)} → ${anchorLabel(noteSelection.to)}`}
-      </p>
-      <div className="actions">
-        <button onClick={onAddBreath} title="Breath after this note (B)">
-          Breathe after <kbd>B</kbd>
-        </button>
+    <section className="card">
+      <div className="card-head">
+        <h2>{noteSelection.single ? 'Note' : 'Passage'}</h2>
+        <span className="where">
+          {noteSelection.single ? anchorLabel(noteSelection.to) : `${anchorLabel(noteSelection.from)} → ${anchorLabel(noteSelection.to)}`}
+        </span>
       </div>
-      <h3>Tempo change {noteSelection.single && <span className="muted">(shift-click to extend)</span>}</h3>
-      <div className="actions grid">
-        <button onClick={() => onAddSection('slower')}>Slow down</button>
-        <button onClick={() => onAddSection('faster')}>Speed up</button>
-        <button onClick={() => onAddSection('broaden')}>Broaden</button>
-        <button onClick={() => onAddSection('push')}>Push forward</button>
-        <button onClick={() => onAddSection('aTempo')}>A tempo</button>
+      <button className="kind breath wide" onClick={onAddBreath} title="Breath after this note (B)">
+        <span className="swatch breath" />
+        Breathe after <kbd>B</kbd>
+      </button>
+      <h3>
+        Tempo change {noteSelection.single && <span className="muted">· shift-click a later note to make a passage</span>}
+      </h3>
+      <div className="kinds">
+        {kinds.map(([kind, label]) => (
+          <button key={kind} className={`kind ${kind}`} onClick={() => onAddSection(kind)}>
+            <span className={`swatch ${kind}`} />
+            {label}
+          </button>
+        ))}
       </div>
     </section>
   );
@@ -102,25 +170,28 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
 function GestureEditor({ gesture: g, rampInfo, breathResults, loopOn, onChange, onDelete, onToggleLoop, picking, onPick }: Props & { gesture: Gesture }) {
   const set = (patch: Partial<Gesture>, field: string) => onChange(g.id, patch, `${g.id}:${field}`);
   return (
-    <section className="panel">
-      <h2>{gestureTitle(g, rampInfo)}</h2>
-      <p className="muted">{g.type === 'breath' ? `After ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</p>
+    <section className={`card editor ${swatch(g, rampInfo)}${g.enabled === false ? ' off' : ''}`}>
+      <div className="card-head">
+        <h2>
+          <span className={`swatch ${swatch(g, rampInfo)}`} />
+          {gestureTitle(g, rampInfo)}
+        </h2>
+        <span className="where">{g.type === 'breath' ? `After ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</span>
+      </div>
 
       {g.type === 'breath' && <BreathFields g={g} result={breathResults.find((r) => r.id === g.id)} set={set} />}
       {g.type === 'ramp' && <RampFields g={g} info={rampInfo.get(g.id)} set={set} />}
       {g.type === 'shape' && <ShapeFields g={g} set={set} picking={picking} onPick={onPick} />}
-      {g.type === 'aTempo' && <p className="muted">Eases back to the basic tempo over this section.</p>}
+      {g.type === 'aTempo' && <p className="note">Eases back to the basic tempo over this passage.</p>}
 
-      <div className="actions">
+      <div className="editor-actions">
         <button className={loopOn ? 'active' : ''} onClick={onToggleLoop} title="Loop from a measure before to a measure after (L)">
-          {loopOn ? 'Stop looping' : 'Loop around'} <kbd>L</kbd>
+          <Repeat size={15} /> {loopOn ? 'Looping' : 'Loop'} <kbd>L</kbd>
         </button>
-        <label className="check">
-          <input type="checkbox" checked={g.enabled !== false} onChange={(e) => set({ enabled: e.target.checked }, 'enabled')} />
-          On
-        </label>
+        <Switch label="On" checked={g.enabled !== false} onChange={(on) => set({ enabled: on }, 'enabled')} title="Hear the piece without it, keeping its settings" />
+        <span className="spacer" />
         <button className="danger" onClick={() => onDelete(g.id)} title="Delete (Del)">
-          Delete
+          <Trash2 size={15} /> Delete
         </button>
       </div>
     </section>
@@ -132,7 +203,7 @@ type Setter = (patch: Partial<Gesture>, field: string) => void;
 function BreathFields({ g, result, set }: { g: BreathGesture; result?: BreathResult; set: Setter }) {
   return (
     <>
-      <div className="presets">
+      <div className="segmented">
         {(Object.keys(BREATH_PRESETS) as BreathPresetKey[]).map((k) => {
           const { label, extraMs } = BREATH_PRESETS[k];
           return (
@@ -143,12 +214,12 @@ function BreathFields({ g, result, set }: { g: BreathGesture; result?: BreathRes
         })}
       </div>
       <Slider label="Extra time" value={g.extraMs} min={0} max={1500} step={10} unit=" ms" onChange={(v) => set({ extraMs: v }, 'extraMs')} />
-      <p className="muted">
+      <p className="note">
         Broadens from the note before the breath to the note after it, slowest at the breath. Everything else stays in
         tempo.
       </p>
       {result && (
-        <p className={result.clamped ? 'warn' : 'muted'}>
+        <p className={result.clamped ? 'note warn' : 'note'}>
           {result.clamped
             ? `Capped at ${Math.round(result.addedSec * 1000)} ms: those two notes can only stretch so far.`
             : `Adds ${Math.round(result.addedSec * 1000)} ms; slowest point ${Math.round(result.minRatio * 100)}% of the tempo.`}
@@ -163,7 +234,7 @@ function RampFields({ g, info, set }: { g: RampGesture; info?: RampInfo; set: Se
   return (
     <>
       <Slider label="Arrive at" value={pct} min={20} max={Math.max(200, pct)} step={1} unit="%" onChange={(v) => set({ target: v / 100 }, 'target')} />
-      <p className="muted">
+      <p className="note">
         Of the basic tempo
         {info && `, from ${Math.round(info.from * 100)}%: ♩ = ${Math.round(info.fromBpm)} → ${Math.round(g.target * info.basicBpm)}`}. Holds it until the next
         tempo change. Changing or deleting earlier ones doesn't move it.
@@ -188,7 +259,7 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
   );
   return (
     <>
-      <div className="presets">
+      <div className="segmented">
         <button className={g.gesture === 'broaden' ? 'active' : ''} onClick={() => set({ gesture: 'broaden' }, 'gesture')}>
           Broaden
         </button>
@@ -223,7 +294,7 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
         </p>
       )}
       <Slider label="Settle after" value={g.releaseQ} min={0} max={4} step={0.25} unit=" ♩" onChange={(v) => set({ releaseQ: v }, 'releaseQ')} />
-      <p className="muted">
+      <p className="note">
         {g.gesture === 'push' ? 'Gathers momentum' : 'Opens up'} toward the peak
         {g.holdUntil ? ', holds it until the hold note,' : ','} then returns to the surrounding tempo by the end
         {g.releaseQ ? ', plus the settle time' : ''}.
@@ -269,7 +340,7 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
     </li>
   );
   return (
-    <section className="panel list">
+    <section className="card list">
       <div className="list-head">
         <h3>In this performance</h3>
         <button
@@ -292,20 +363,20 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
           const state = now.has(g.id) ? ' now' : g.id === holding ? ' holding' : '';
           const item = (
             <li key={g.id} className="gesture-row">
-              <input
-                type="checkbox"
-                checked={g.enabled !== false}
-                onChange={(e) => onSetEnabled([g.id], e.target.checked)}
-                title="On / off: hear the piece without it, keeping its settings"
-                aria-label={`${gestureTitle(g, rampInfo)} on`}
-              />
               <button className={`${g.id === gesture?.id ? 'active' : ''}${g.enabled === false ? ' off' : ''}${state}`} onClick={() => onSelect(g.id)}>
                 <span className={`swatch ${swatch(g, rampInfo)}`} />
-                <span>
-                  {gestureTitle(g, rampInfo)} <span className="muted">{g.type === 'breath' ? `after ${anchorLabel(g.at)}` : `${anchorLabel(g.from)} → ${anchorLabel(g.to)}`}</span>
+                <span className="row-text">
+                  <span className="row-title">{gestureTitle(g, rampInfo)}</span>
+                  <span className="row-where">{g.type === 'breath' ? `after ${anchorLabel(g.at)}` : shortRange(g.from, g.to)}</span>
                 </span>
                 {state && <span className={`tag${state}`}>{state === ' now' ? 'now' : 'holding'}</span>}
               </button>
+              <Switch
+                checked={g.enabled !== false}
+                onChange={(on) => onSetEnabled([g.id], on)}
+                title="On / off: hear the piece without it, keeping its settings"
+                ariaLabel={`${gestureTitle(g, rampInfo)} on`}
+              />
             </li>
           );
           return i === markerAt ? [marker, item] : [item];
@@ -316,45 +387,37 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
   );
 }
 
-/** A checkbox for every gesture of a kind: ticked when all are on, half-ticked when only some are. */
+/** A switch for every gesture of a kind: on when all are, half on when only some are. */
 function GroupToggle({ label, title, gestures, onSetEnabled }: { label: string; title: string; gestures: Gesture[]; onSetEnabled: (ids: string[], on: boolean) => void }) {
-  const ref = useRef<HTMLInputElement>(null);
   const on = gestures.filter((g) => g.enabled !== false).length;
   const some = on > 0 && on < gestures.length;
-  useEffect(() => {
-    if (ref.current) ref.current.indeterminate = some;
-  }, [some]);
   if (!gestures.length) return null;
   return (
-    <label className="check" title={title}>
-      <input
-        ref={ref}
-        type="checkbox"
-        checked={on === gestures.length}
-        onChange={() => onSetEnabled(gestures.map((g) => g.id), on < gestures.length)}
-      />
-      {label}
-      {some && <span className="muted">({on} of {gestures.length} on)</span>}
-    </label>
-  );
-}
-
-function Slider(p: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (v: number) => void }) {
-  return (
-    <label className="slider">
-      <span>{p.label}</span>
-      <input type="range" min={p.min} max={p.max} step={p.step} value={p.value} onChange={(e) => p.onChange(Number(e.target.value))} />
-      <output>
-        {p.value}
-        {p.unit}
-      </output>
-    </label>
+    <Switch
+      label={
+        <>
+          {label}
+          <span className="muted"> {some ? `${on} of ${gestures.length} on` : gestures.length}</span>
+        </>
+      }
+      title={title}
+      checked={on === gestures.length}
+      indeterminate={some}
+      onChange={() => onSetEnabled(gestures.map((g) => g.id), on < gestures.length)}
+    />
   );
 }
 
 export function anchorLabel(a: Anchor): string {
   const beat = Math.round((a.offsetQ + 1) * 100) / 100;
   return `m. ${a.label ?? a.measureIndex + 1}, ♩${beat}`;
+}
+
+/** "m. 4–7", or "m. 4, ♩1–2.5" within a bar: the list's short form (the editor shows the beats). */
+function shortRange(from: Anchor, to: Anchor): string {
+  const bar = (a: Anchor) => a.label ?? String(a.measureIndex + 1);
+  const beat = (a: Anchor) => Math.round((a.offsetQ + 1) * 100) / 100;
+  return from.measureIndex === to.measureIndex ? `m. ${bar(from)}, ♩${beat(from)}–${beat(to)}` : `m. ${bar(from)}–${bar(to)}`;
 }
 
 /** Whether a Slow down / Speed up goes slower or faster than the tempo it starts from. */

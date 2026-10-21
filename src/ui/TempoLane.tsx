@@ -13,8 +13,8 @@ interface Props {
   onSelect: (gestureId: string) => void;
 }
 
-const HEIGHT = 120;
-const PAD_TOP = 14;
+const HEIGHT = 112;
+const PAD_TOP = 28;
 const PAD_BOTTOM = 22;
 
 /** The whole piece's tempo curve, with gesture spans, breaths and the playhead. */
@@ -64,6 +64,8 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
   const y = (bpm: number) => PAD_TOP + (1 - (bpm - curve.lo) / (curve.hi - curve.lo)) * (HEIGHT - PAD_TOP - PAD_BOTTOM);
   const path = (key: 'bpm' | 'base') =>
     curve.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.q).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(' ');
+  const floor = HEIGHT - PAD_BOTTOM;
+  const area = `${path('bpm')} L${x(endQ).toFixed(1)} ${floor} L0 ${floor} Z`;
 
   const bands = timing.map((g, i) => {
     const [lo, hi] =
@@ -98,8 +100,18 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
             className={`band ${b.cls}${b.id === selectedId ? ' selected' : ''}`}
             x={x(b.lo)}
             width={Math.max(2, x(b.hi) - x(b.lo))}
-            y={PAD_TOP - 6}
-            height={HEIGHT - PAD_TOP - PAD_BOTTOM + 12}
+            y={0}
+            height={HEIGHT - PAD_BOTTOM}
+          />
+        ))}
+        {bands.map((b) => (
+          <rect
+            key={`s${b.key}`}
+            className={`band-strip ${b.cls}${b.id === selectedId ? ' selected' : ''}`}
+            x={x(b.lo)}
+            width={Math.max(2, x(b.hi) - x(b.lo))}
+            y={0}
+            height={b.id === selectedId ? 4 : 3}
           />
         ))}
         {index.played.map((m, i) => (
@@ -112,16 +124,19 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
             )}
           </g>
         ))}
+        <path className="tempo-area" d={area} />
         <path className="base-curve" d={path('base')} />
         <path className="tempo-curve" d={path('bpm')} />
         {bands.map((b) =>
           b.breathQ === undefined ? null : (
-            <line key={`t${b.key}`} className="breath-tick" x1={x(b.breathQ)} x2={x(b.breathQ)} y1={PAD_TOP - 8} y2={PAD_TOP - 1} />
+            <line key={`t${b.key}`} className="breath-tick" x1={x(b.breathQ)} x2={x(b.breathQ)} y1={0} y2={8} />
           ),
         )}
-        <line className="playhead" x1={x(playQ)} x2={x(playQ)} y1={0} y2={HEIGHT} />
+        <line className="playhead" x1={x(playQ)} x2={x(playQ)} y1={0} y2={floor} />
+        <path className="playhead-head" d={`M${(x(playQ) - 5).toFixed(1)} 0 L${(x(playQ) + 5).toFixed(1)} 0 L${x(playQ).toFixed(1)} 6 Z`} />
         {hover !== undefined && <line className="hover-line" x1={x(hover)} x2={x(hover)} y1={0} y2={HEIGHT} />}
       </svg>
+      <div className="lane-label">Tempo</div>
       <div className="lane-readout">{hoverInfo ?? describe(playQ, map, index)}</div>
     </div>
   );

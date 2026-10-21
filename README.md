@@ -19,16 +19,18 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | Do this | To |
 |---|---|
 | Click a note, press **B** | Breathe after it: a small broaden from that note to the next one, slowest at the breath |
-| Click a note, shift-click another | Select a section, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
+| Click a note, shift-click another | Select a passage, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
 | Select a breath or tempo change, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
-| **E** | Compare with and without your phrasing |
-| Untick a breath or section in the list | Hear the piece without it, keeping its settings (**Breaths** / **Sections** switch them all) |
-| **D** | Compare with and without dynamics |
+| **E** (the **Phrasing** switch) | Compare with and without your breaths and tempo changes |
+| Switch a breath or tempo change off in the list | Hear the piece without it, keeping its settings (**Breaths** / **Tempo changes** switch them all) |
+| **D** (the **Dynamics** switch) | Compare with and without dynamics |
 | **H** | Play in a concert hall, or dry (the slider beside **Hall** sets how much) |
 | **Space**, double-click a note | Play/pause, play from that note |
 | Click the tempo lane | Seek; select the gesture under the cursor |
 | **Ctrl+Z** / **Ctrl+Shift+Z** | Undo / redo |
+| **Ctrl+S** | Save piece |
+| **Mixer** | Each part's volume, and muting |
 
 - A breath is set by **extra time** (e.g. 300 ms). The tempo eases down through the note before the breath, is
   slowest at the breath, and eases back up through the note after it. Everything outside those two notes stays in
@@ -47,7 +49,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
   ease back to tempo by the end of the phrase.
 - **Dynamics.** Verovio's MIDI plays every note at one level; kplayer plays the score's written dynamics and
   hairpins instead, for every staff of the part they're written in. A **voicing** goes on top, in the **Dynamics**
-  panel: strands of the texture (a melody, a tremolo blanket, repeated chords, the bass), each picked by staff, voice,
+  tab: strands of the texture (a melody, a tremolo blanket, repeated chords, the bass), each picked by staff, voice,
   note length, top or bottom of the chord, tremolo, and bars, with its own level in dB. Click a voice to light up its
   notes in the score; click a note to see its voice and velocity. A voice can sound slightly **ahead** (as a pianist
   brings out a tune) or vary a little in level and timing (so a tremolo shimmers). A **pulse** adds a metric
@@ -56,7 +58,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
   others. Sustain pedal can change with the harmony, compared beat by beat (or by a longer beat, such as the dotted
   half of 6/4). Two voices sharing a notehead play as one note, as a pianist strikes the key once. **Import
   voicing…** takes the dynamics from a file without touching your tempo phrasing.
-- Your work autosaves in the browser for each score. **Save piece…** writes it all to one `.kplayer` file, with the
+- Your work autosaves in the browser for each score. **File ▸ Save piece…** writes it all to one `.kplayer` file, with the
   score inside: phrasing, voicing and dynamics, tempo and part mix. **Open…** it, on any computer, to get everything
   back (if this browser had its own version of that score, Ctrl+Z returns to it). **Export JSON** saves just your
   phrasing and dynamics, to **Import…** onto the same score; **Export MIDI** writes the timed performance for use
