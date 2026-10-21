@@ -1,14 +1,16 @@
 // Renders a performance to audio, offline, the way kplayer plays it: the
 // performance file's timing and dynamics, the same SoundFont synth (SpessaSynth)
-// and the same piano. Useful for listening outside the browser and for
-// measuring the result: with --only, just some voices play, so their loudness
-// can be compared (tools/dynamics_arc.py, with the --timing file written here).
+// and the same piano, and with --hall the same concert hall. Useful for listening
+// outside the browser and for measuring the result: with --only, just some voices
+// play, so their loudness can be compared (tools/dynamics_arc.py, with the --timing
+// file written here).
 //
 // Usage: npx tsx scripts/render-audio.ts score.mxl performance.kplayer.json out.wav
 //          [--voicing file.json]   take the dynamics from this file instead (a performance file or a bare voicing)
 //          [--only id,id,…]        play only the notes in these voices ("-" for notes in none)
 //          [--parts 1,…]           play only these parts (default: all)
 //          [--flat]                no dynamics: every note at Verovio's one velocity
+//          [--hall [level]]        in the app's concert hall (1 = its usual amount); leave it out to measure loudness
 //          [--timing out.json]     write where each beat falls in the audio, for dynamics_arc.py
 //          [--rate 44100]
 
@@ -23,6 +25,7 @@ import { buildTimeMap } from '../src/perf/timeline';
 import type { DynamicsDoc } from '../src/perf/types';
 import { parseDoc } from '../src/storage/persist';
 import { loadScoreFile } from './lib/load-score';
+import { applyHall } from './lib/hall';
 import { createRenderer } from './lib/render';
 
 const args = process.argv.slice(2);
@@ -31,6 +34,8 @@ const flag = (name: string) => {
   return i < 0 ? undefined : args.splice(i, 2)[1];
 };
 const flat = args.includes('--flat') ? (args.splice(args.indexOf('--flat'), 1), true) : false;
+const hallAt = args.indexOf('--hall');
+const hall = hallAt < 0 ? 0 : /^[\d.]+$/.test(args[hallAt + 1] ?? '') ? Number(args.splice(hallAt, 2)[1]) : (args.splice(hallAt, 1), 1);
 const voicingFile = flag('voicing');
 const only = flag('only')?.split(',');
 const parts = flag('parts')?.split(',').map(Number);
@@ -67,7 +72,8 @@ if (only || parts) {
 const midiBytes = renderPerformanceMidi(events, map, { parts: doc.parts });
 
 const pianoOnly = events.parts.every((p) => p.program < 8);
-const { left, right } = await createRenderer(rate, { pianoOnly }).render(midiBytes, map.duration + 3);
+const { left, right } = await createRenderer(rate, { pianoOnly }).render(midiBytes, map.duration + (hall ? 5 : 3));
+if (hall) applyHall(left, right, rate, hall);
 const total = left.length;
 // Not normalised: renders stay on one scale, so their loudness can be compared.
 let peak = 0;
@@ -79,6 +85,6 @@ if (timingFile) {
   fs.writeFileSync(timingFile, JSON.stringify({ recording: path.basename(outFile), onsets }));
 }
 console.error(
-  `${path.basename(outFile)}: ${map.duration.toFixed(1)} s${only ? `, voices ${only.join(', ')}` : ''}${flat ? ', flat dynamics' : ''}, ` +
+  `${path.basename(outFile)}: ${map.duration.toFixed(1)} s${only ? `, voices ${only.join(', ')}` : ''}${flat ? ', flat dynamics' : ''}${hall ? `, hall ${hall}` : ''}, ` +
     `peak ${(20 * Math.log10(peak)).toFixed(1)} dBFS${peak > 1 ? ' (clipped)' : ''}`,
 );

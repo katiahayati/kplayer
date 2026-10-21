@@ -19,7 +19,7 @@ if [[ "$target" != *:* || -z "$host" || -z "$path" || "$path" != */* || "$path" 
   exit 1
 fi
 
-for bank in MuseScore_General.sf3 YDP-GrandPiano.sf2; do
+for bank in MuseScore_General.sf3 SalamanderGrandPiano.sf3; do
   if [[ ! -f "public/soundfonts/$bank" ]]; then
     echo "public/soundfonts/$bank is missing: run npm run fetch-soundfont first." >&2
     exit 1

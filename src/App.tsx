@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Player, type SoundBankSource } from './audio/player';
+import { Player, unlockAudio, type SoundBankSource } from './audio/player';
 import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
 import { shapeDynamics } from './perf/dynamics';
@@ -17,10 +17,27 @@ import { Transport } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
 
 const SOUND_BANKS: SoundBankSource[] = [
-  { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/YDP-GrandPiano.sf2`, optional: true },
+  { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/SalamanderGrandPiano.sf3`, optional: true },
   { id: 'general', url: `${import.meta.env.BASE_URL}soundfonts/MuseScore_General.sf3` },
 ];
 const DEMO_URL = `${import.meta.env.BASE_URL}demo/song.musicxml`;
+
+/** How much concert hall the piano plays in: a listening setting, remembered in this browser. */
+interface HallSetting {
+  on: boolean;
+  /** 1 is the usual amount. */
+  level: number;
+}
+const HALL_KEY = 'kplayer.hall';
+function readHall(): HallSetting {
+  try {
+    const h = JSON.parse(localStorage.getItem(HALL_KEY) ?? 'null');
+    if (typeof h?.on === 'boolean' && typeof h?.level === 'number') return h;
+  } catch {
+    // No storage (private window, blocked): the default.
+  }
+  return { on: true, level: 1 };
+}
 
 type Selection = { kind: 'none' } | { kind: 'notes'; anchorId: string; focusId: string } | { kind: 'gesture'; id: string };
 
@@ -28,6 +45,11 @@ export default function App() {
   const [score, setScore] = useState<LoadedScore>();
   const [error, setError] = useState<string>();
   const [status, setStatus] = useState<string>();
+  /** Progress of loading the sounds, which starts as soon as the page opens. */
+  const [soundStatus, setSoundStatus] = useState<string>();
+  const [hall, setHall] = useState(readHall);
+  const hallRef = useRef(hall);
+  hallRef.current = hall;
   const history = useHistory<PerformanceDoc>(emptyDoc());
   const doc = history.value;
   const [expressive, setExpressive] = useState(true);
@@ -155,23 +177,44 @@ export default function App() {
   const ensurePlayer = useCallback(async (): Promise<Player | undefined> => {
     if (player.current) return player.current;
     try {
-      playerLoading.current ??= Player.create(SOUND_BANKS, setStatus);
-      player.current = await playerLoading.current;
+      playerLoading.current ??= Player.create(SOUND_BANKS, setSoundStatus);
+      const p = await playerLoading.current;
+      if (!player.current) {
+        player.current = p;
+        const h = hallRef.current;
+        p.setHall(h.on ? h.level : 0);
+      }
       return player.current;
     } catch (e) {
       playerLoading.current = undefined;
       setError(`Couldn't start audio: ${(e as Error).message}. Did you run "npm run fetch-soundfont"?`);
     } finally {
-      setStatus(undefined);
+      setSoundStatus(undefined);
     }
   }, []);
 
+  // Load the sounds as soon as the page opens, and hand the player the piece (paused) as soon as both
+  // are there, so the samples it needs are ready before Play. (No audio in tests: skip.)
+  useEffect(() => {
+    if (typeof AudioContext !== 'undefined') void ensurePlayer().then((p) => p && !loadedMap.current && pushToPlayer());
+  }, [ensurePlayer, pushToPlayer]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HALL_KEY, JSON.stringify(hall));
+    } catch {
+      // Not remembered, but still applied.
+    }
+    player.current?.setHall(hall.on ? hall.level : 0);
+  }, [hall]);
+
   const togglePlay = useCallback(async () => {
     if (!score) return;
-    const fresh = !player.current;
+    // Browsers only let audio start from a click or key press: before anything is awaited.
+    unlockAudio();
     const p = await ensurePlayer();
     if (!p) return;
-    if (fresh) return pushToPlayer({ play: true });
+    if (!loadedMap.current) return pushToPlayer({ play: true });
     if (p.playing) return p.pause();
     const m = loadedMap.current;
     if (m && (p.finished || playQRef.current >= m.endQ - 1e-6)) {
@@ -483,6 +526,8 @@ export default function App() {
       setExpressive((x) => !x);
     } else if (e.key === 'd' || e.key === 'D') {
       setDynamicsOn((x) => !x);
+    } else if (e.key === 'h' || e.key === 'H') {
+      setHall((h) => ({ ...h, on: !h.on }));
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && selection.kind === 'gesture') {
       e.preventDefault();
       deleteGesture(selection.id);
@@ -520,9 +565,10 @@ export default function App() {
         position={position}
         bpm={map?.bpmAt(playQ)}
         bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
-        status={status}
+        status={status ?? soundStatus}
         expressive={expressive}
         dynamics={dynamicsOn}
+        hall={hall}
         tempoFactor={doc.tempoFactor}
         parts={score?.events.parts ?? []}
         partSettings={doc.parts}
@@ -537,6 +583,7 @@ export default function App() {
         onRewind={() => seekTo(0)}
         onExpressive={setExpressive}
         onDynamics={setDynamicsOn}
+        onHall={setHall}
         onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
         onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
         onStopLoop={() => setLoopGestureId(undefined)}
@@ -619,9 +666,10 @@ export default function App() {
             </label>{' '}
             <button onClick={openDemo}>Try the demo song</button>
           </p>
-          {status && <p className="muted">{status}</p>}
+          {(status ?? soundStatus) && <p className="muted">{status ?? soundStatus}</p>}
           <p className="credits muted">
-            Piano: YDP Grand Piano (FreePats, CC-BY 3.0). Other instruments: MuseScore General (MIT).
+            Piano: <a href="https://archive.org/details/SalamanderGrandPianoV3">Salamander Grand Piano</a> by Alexander Holm (CC-BY 3.0).
+            Other instruments: MuseScore General (MIT).
           </p>
         </div>
       )}

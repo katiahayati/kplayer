@@ -1,11 +1,11 @@
 // Offline rendering through the same SoundFont synth as the app (SpessaSynth),
-// with the app's banks: the YDP piano first, MuseScore General for the rest.
+// with the app's banks: the Salamander piano first, MuseScore General for the rest.
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { BasicMIDI, SoundBankLoader, SpessaSynthProcessor, SpessaSynthSequencer, type BasicSoundBank } from 'spessasynth_core';
+import { BasicMIDI, BasicSoundBank, SoundBankLoader, SpessaSynthProcessor, SpessaSynthSequencer } from 'spessasynth_core';
 
-const BANKS = ['YDP-GrandPiano.sf2', 'MuseScore_General.sf3'];
+const BANKS = ['SalamanderGrandPiano.sf3', 'MuseScore_General.sf3'];
 
 export interface Renderer {
   rate: number;
@@ -28,6 +28,8 @@ export function createRenderer(rate = 44100, { pianoOnly = false, dir = 'public/
   return {
     rate,
     async render(midiBytes, seconds) {
+      // Both banks are SF3: their samples can't be decoded before the Ogg decoder has started.
+      await BasicSoundBank.isSF3DecoderReady;
       const synth = new SpessaSynthProcessor(rate, { eventsEnabled: false });
       banks.forEach((b, i) => synth.soundBankManager.addSoundBank(b, `bank${i}`));
       synth.soundBankManager.priorityOrder = banks.map((_, i) => `bank${i}`);

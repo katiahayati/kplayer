@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# Downloads the sound banks into public/soundfonts/:
+# Gets the sound banks into public/soundfonts/:
 #   - MuseScore General (MIT): every General MIDI instrument
-#   - YDP Grand Piano (FreePats, CC-BY 3.0): a sampled Yamaha grand that replaces the piano
-# Archives are streamed straight to disk, never held in memory.
+#   - Salamander Grand Piano (Alexander Holm, CC-BY 3.0): a Yamaha C5 recorded in stereo at
+#     16 strike strengths, which replaces the piano. It's built here from the original release
+#     by scripts/build-piano.ts, which needs ffmpeg with libvorbis.
+# Downloads are streamed to disk, never held in memory. Set SALAMANDER_ARCHIVE to a copy of
+# SalamanderGrandPianoV3_44.1khz16bit.tar.bz2 you already have to skip that download (489 MB).
 set -euo pipefail
-dir="$(cd "$(dirname "$0")/.." && pwd)/public/soundfonts"
+root="$(cd "$(dirname "$0")/.." && pwd)"
+dir="$root/public/soundfonts"
 mkdir -p "$dir"
 
 general="$dir/MuseScore_General.sf3"
@@ -17,13 +21,27 @@ else
   mv "$general.part" "$general"
 fi
 
-piano="$dir/YDP-GrandPiano.sf2"
+piano="$dir/SalamanderGrandPiano.sf3"
 if [[ -f "$piano" ]]; then
   echo "Already present: $piano"
 else
-  echo "Downloading YDP Grand Piano (~37 MB, unpacks to ~118 MB)…"
-  curl -fL --progress-bar "https://freepats.zenvoid.org/Piano/YDP-GrandPiano/YDP-GrandPiano-SF2-20160804.tar.bz2" |
-    tar -xjO YDP-GrandPiano-SF2-20160804/YDP-GrandPiano-20160804.sf2 > "$piano.part"
+  if ! ffmpeg -hide_banner -encoders 2>/dev/null | grep -q libvorbis; then
+    echo "Building the piano needs ffmpeg with libvorbis (e.g. sudo apt install ffmpeg)." >&2
+    exit 1
+  fi
+  tmp="$(mktemp -d)"
+  trap 'rm -rf "$tmp"' EXIT
+  archive="${SALAMANDER_ARCHIVE:-}"
+  if [[ -z "$archive" ]]; then
+    echo "Downloading the Salamander Grand Piano recordings (~490 MB)…"
+    archive="$tmp/salamander.tar.bz2"
+    curl -fL --progress-bar -o "$archive" \
+      "https://archive.org/download/SalamanderGrandPianoV3/SalamanderGrandPianoV3_44.1khz16bit.tar.bz2"
+  fi
+  echo "Unpacking the notes (~1.1 GB, removed afterwards)…"
+  tar -xjf "$archive" -C "$tmp" --strip-components=1 --wildcards '*/SalamanderGrandPianoV3.sfz' '*v[0-9]*.wav'
+  echo "Building the piano (a few minutes)…"
+  (cd "$root" && npx tsx scripts/build-piano.ts "$tmp" "$piano.part")
   mv "$piano.part" "$piano"
 fi
 echo "Sound banks are in $dir"

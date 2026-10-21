@@ -44,11 +44,38 @@ Run `npm run spike -- path/to/score.musicxml` to reprint these for any score.
   first note-on to the last voice event. **CC2, CC4, CC111 and CC116–119 are also read as loop points**, so kplayer
   never copies them into the performance MIDI.
 - Seeking while paused updates the paused clock only once the worklet answers with `timeChange`.
-- **Several sound banks**: `soundBankManager.priorityOrder` lists bank IDs, first wins per preset. kplayer loads the
-  YDP piano (one preset, 0:0 "Grand Piano", 121 samples at 44.1 kHz, 118 MB) ahead of MuseScore General.
-- **Memory**: samples are decoded to 32-bit floats as they're played, so the working set approaches 2× the 16-bit
-  sample data. The Salamander Grand SF2 (1.27 GB, 48 kHz/24-bit, 16 layers) is too big for this; YDP peaks around
-  240 MB. Don't decode big banks whole in Node either: on this WSL (~5.8 GB) it ran out of memory.
+- **Several sound banks**: `soundBankManager.priorityOrder` lists bank IDs, first wins per preset. kplayer loads its
+  piano (one preset, 0:0 "Grand Piano") ahead of MuseScore General.
+- **No reverb unless asked**: the reverb send (CC91) defaults to 0 and Verovio's MIDI never sets it, so everything
+  plays dry, which sounds like MIDI. kplayer adds its own hall after the synth (`src/audio/hall.ts`) instead of
+  SpessaSynth's built-in GS reverb, whose return is weak (its CC91 modulator is 20% at full send).
+- **Loading before a click works**: an AudioContext made at page load starts suspended, but `addModule`, the
+  worklet synth and `addSoundBank` all complete while it is; `resume()` from the Play click is all that's left.
+- **Preloading**: the sequencer decodes every sample the loaded song uses as it loads it (`preload`, on by default),
+  so handing it the piece paused means the first notes don't stall. Decoded samples stay cached.
+- **SF3 in Node**: `await BasicSoundBank.isSF3DecoderReady` before rendering, or Ogg samples decode as silence.
+- **Memory**: samples are decoded to 32-bit floats as they're first used. An SF2's file is kept as well, so its
+  working set approaches 3× the 16-bit data; an SF3 keeps only the small compressed file plus what's decoded. Don't
+  decode big banks whole in Node: on this WSL (~5.8 GB) it ran out of memory.
+
+## The piano (scripts/build-piano.ts)
+
+- The old piano, **YDP** (FreePats' Disklavier samples), was mono and played one recording for every velocity from
+  0 to 73: pp, p and mf had the same tone, a hard strike turned down. Its five layers were all loud strikes.
+- **Salamander Grand Piano V3** (Yamaha C5, CC-BY 3.0) has 16 strike strengths, every minor third, in stereo. From
+  the 44.1 kHz/16-bit release (489 MB): every recording is scaled to the attack loudness of its key's hardest strike,
+  so loudness follows the SoundFont velocity curve (40·log10(v/127) dB, as kplayer's dynamics assume; per note and
+  velocity it matches YDP within 1–2 dB) and the strike only sets the tone. The 7–28 ms of silence before each
+  attack is cut, and each recording a second after it has died away by 40 dB (12 s at most). Encoded as Ogg Vorbis
+  (q6) the bank is 73 MB, against 1.16 GB as 16-bit PCM. Releases: 0.8 s with dampers, 4 s above them (F#6 up).
+- Salamander's SFZ leaves out `pitch_keycenter` for C4: the SFZ default is 60. Read as 0, C4 played from the wrong
+  root, quiet and shrill.
+- Salamander's stereo is a wide spaced pair (left/right correlation ≈ 0.2): measure loudness by the channels' power,
+  not their sum, which loses up to 7 dB on some notes.
+- Not used yet: its release noises (key up), pedal noises and string-resonance releases. A SoundFont can't trigger on
+  release, but kplayer writes the MIDI, so it could add them as notes on a channel of their own.
+- Rendering Var det en dröm? (2 minutes) in Node, the 16-layer Salamander SF3 took about 300 MB more memory than
+  YDP's SF2 (heap and buffers 1.07 GB against 0.78 GB; an 8-layer build took about 180 MB more).
 
 ## Aligning recordings (tools/align_recording.py)
 

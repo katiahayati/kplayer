@@ -13,6 +13,8 @@ interface Props {
   status?: string;
   expressive: boolean;
   dynamics: boolean;
+  /** The concert hall: on or off, and how much (1 is the usual amount). */
+  hall: { on: boolean; level: number };
   tempoFactor: number;
   parts: ScorePart[];
   partSettings: Record<string, PartSetting>;
@@ -27,6 +29,7 @@ interface Props {
   onRewind: () => void;
   onExpressive: (on: boolean) => void;
   onDynamics: (on: boolean) => void;
+  onHall: (h: { on: boolean; level: number }) => void;
   onTempoFactor: (f: number) => void;
   onPart: (index: number, s: PartSetting) => void;
   onStopLoop: () => void;
@@ -103,6 +106,23 @@ export function Transport(p: Props) {
             <input type="checkbox" checked={p.dynamics} onChange={(e) => p.onDynamics(e.target.checked)} />
             Dynamics
           </label>
+          <span className="hall">
+            <label className="toggle" title="Play in a concert hall, or dry as if close-miked (H)">
+              <input type="checkbox" checked={p.hall.on} onChange={(e) => p.onHall({ ...p.hall, on: e.target.checked })} />
+              Hall
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={200}
+              step={5}
+              value={Math.round(p.hall.level * 100)}
+              disabled={!p.hall.on}
+              title={`How much hall: ${Math.round(p.hall.level * 100)}%`}
+              aria-label="How much hall"
+              onChange={(e) => p.onHall({ ...p.hall, level: Number(e.target.value) / 100 })}
+            />
+          </span>
           <label className="tempo">
             Tempo
             <input type="range" min={50} max={150} step={1} value={Math.round(p.tempoFactor * 100)} onChange={(e) => p.onTempoFactor(Number(e.target.value) / 100)} />

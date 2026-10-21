@@ -216,6 +216,16 @@ kbd {
   opacity: 0.6;
 }
 
+.transport .hall {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.transport .hall input[type='range'] {
+  width: 60px;
+}
+
 .pill {
   display: inline-flex;
   align-items: center;

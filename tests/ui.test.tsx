@@ -205,6 +205,16 @@ describe('app', () => {
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
     expect(document.querySelectorAll('.list li button').length).toBe(count);
 
+    // The concert hall: on by default; H switches it, and the browser remembers the setting.
+    const hallBox = () => document.querySelector<HTMLInputElement>('.hall input[type=checkbox]')!;
+    expect(hallBox().checked).toBe(true);
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })));
+    expect(hallBox().checked).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('.hall input[type=range]')!.disabled).toBe(true);
+    expect(JSON.parse(localStorage.getItem('kplayer.hall')!)).toEqual({ on: false, level: 1 });
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'h' })));
+    expect(hallBox().checked).toBe(true);
+
     // Import a voicing (only the dynamics), see its notes, and how loud a selected note plays.
     const gesturesBefore = document.querySelectorAll('.list li button').length;
     const voicing = { dynamics: { voices: [{ id: 'rh', name: 'Right hand', select: { part: 1, staff: [1] }, gainDb: -6 }] } };
