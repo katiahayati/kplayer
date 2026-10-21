@@ -323,6 +323,10 @@ kbd {
   color: var(--warn);
 }
 
+.breath-marker.off {
+  opacity: 0.35;
+}
+
 /* ---- Inspector ---- */
 
 .inspector {
@@ -450,8 +454,31 @@ button.small {
   padding: 0;
 }
 
+.list-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 6px 6px;
+  font-size: 13px;
+}
+
+.list-groups .muted {
+  font-size: 12px;
+}
+
+.list li.gesture-row {
+  display: flex;
+  align-items: center;
+}
+
+.list li.gesture-row input {
+  flex: none;
+  margin: 0 0 0 6px;
+}
+
 .list li button {
   width: 100%;
+  min-width: 0;
   text-align: left;
   white-space: normal;
   border: none;

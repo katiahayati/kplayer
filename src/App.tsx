@@ -250,6 +250,14 @@ export default function App() {
       setDoc({ ...doc, gestures: doc.gestures.map((g) => (g.id === id ? ({ ...g, ...patch } as Gesture) : g)) }, key),
     [doc, setDoc],
   );
+  /** Switches gestures on or off without deleting them, to hear the piece with and without. */
+  const setEnabled = useCallback(
+    (ids: string[], on: boolean) => {
+      const which = new Set(ids);
+      setDoc({ ...doc, gestures: doc.gestures.map((g) => (which.has(g.id) ? { ...g, enabled: on } : g)) }, `enabled:${ids.join()}`);
+    },
+    [doc, setDoc],
+  );
   const deleteGesture = useCallback(
     (id: string) => {
       setDoc({ ...doc, gestures: doc.gestures.filter((g) => g.id !== id) });
@@ -351,7 +359,7 @@ export default function App() {
       const q = resolveAnchor(score.index, g.at)[0];
       if (q === undefined) return [];
       const clamped = !!map?.breaths.some((b) => b.id === g.id && b.clamped);
-      return [{ gestureId: g.id, q, selected: selection.kind === 'gesture' && selection.id === g.id, clamped }];
+      return [{ gestureId: g.id, q, selected: selection.kind === 'gesture' && selection.id === g.id, clamped, off: g.enabled === false }];
     });
   }, [score, doc.gestures, selection, map]);
 
@@ -569,6 +577,7 @@ export default function App() {
               onAddBreath={addBreath}
               onAddSection={addSection}
               onChange={updateGesture}
+              onSetEnabled={setEnabled}
               onDelete={deleteGesture}
               onClearAll={clearAll}
               onToggleLoop={toggleLoop}

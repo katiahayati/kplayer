@@ -8,6 +8,8 @@ export interface BreathMarker {
   q: number;
   selected: boolean;
   clamped: boolean;
+  /** Switched off: kept, but not played. */
+  off: boolean;
 }
 
 interface Props {
@@ -153,9 +155,9 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
         {markerPos.map(({ marker, left, top }) => (
           <button
             key={marker.gestureId}
-            className={`breath-marker${marker.selected ? ' selected' : ''}${marker.clamped ? ' clamped' : ''}`}
+            className={`breath-marker${marker.selected ? ' selected' : ''}${marker.clamped ? ' clamped' : ''}${marker.off ? ' off' : ''}`}
             style={{ left, top }}
-            title="Breath"
+            title={marker.off ? 'Breath (off)' : 'Breath'}
             onClick={(e) => {
               e.stopPropagation();
               onBreathClick(marker.gestureId);

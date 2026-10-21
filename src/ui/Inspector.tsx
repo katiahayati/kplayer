@@ -35,6 +35,8 @@ interface Props {
   onAddBreath: () => void;
   onAddSection: (kind: SectionKind) => void;
   onChange: (id: string, patch: Partial<Gesture>, key: string) => void;
+  /** Switches gestures on or off without deleting them. */
+  onSetEnabled: (ids: string[], on: boolean) => void;
   onDelete: (id: string) => void;
   /** Removes every gesture (undoable). */
   onClearAll: () => void;
@@ -236,7 +238,7 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
  * whose tempo is still in force after it ended, and a playhead marker between
  * gestures when none is acting.
  */
-function GestureList({ gestures, gesture, onSelect, onClearAll, spans, rampInfo, playQ, index }: Props) {
+function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, spans, rampInfo, playQ, index }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
   const eps = 1e-9;
   const start = (g: Gesture) => resolveAnchor(index, g.type === 'breath' ? g.at : g.from)[0] ?? Infinity;
@@ -281,11 +283,22 @@ function GestureList({ gestures, gesture, onSelect, onClearAll, spans, rampInfo,
           Clear all
         </button>
       </div>
+      <div className="list-groups">
+        <GroupToggle label="Breaths" title="Every breath on or off" gestures={sorted.filter((g) => g.type === 'breath')} onSetEnabled={onSetEnabled} />
+        <GroupToggle label="Sections" title="Every tempo section on or off" gestures={sorted.filter((g) => g.type !== 'breath')} onSetEnabled={onSetEnabled} />
+      </div>
       <ul ref={listRef}>
         {sorted.flatMap((g, i) => {
           const state = now.has(g.id) ? ' now' : g.id === holding ? ' holding' : '';
           const item = (
-            <li key={g.id}>
+            <li key={g.id} className="gesture-row">
+              <input
+                type="checkbox"
+                checked={g.enabled !== false}
+                onChange={(e) => onSetEnabled([g.id], e.target.checked)}
+                title="On / off: hear the piece without it, keeping its settings"
+                aria-label={`${gestureTitle(g, rampInfo)} on`}
+              />
               <button className={`${g.id === gesture?.id ? 'active' : ''}${g.enabled === false ? ' off' : ''}${state}`} onClick={() => onSelect(g.id)}>
                 <span className={`swatch ${swatch(g, rampInfo)}`} />
                 <span>
@@ -300,6 +313,29 @@ function GestureList({ gestures, gesture, onSelect, onClearAll, spans, rampInfo,
         {markerAt === sorted.length && marker}
       </ul>
     </section>
+  );
+}
+
+/** A checkbox for every gesture of a kind: ticked when all are on, half-ticked when only some are. */
+function GroupToggle({ label, title, gestures, onSetEnabled }: { label: string; title: string; gestures: Gesture[]; onSetEnabled: (ids: string[], on: boolean) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const on = gestures.filter((g) => g.enabled !== false).length;
+  const some = on > 0 && on < gestures.length;
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = some;
+  }, [some]);
+  if (!gestures.length) return null;
+  return (
+    <label className="check" title={title}>
+      <input
+        ref={ref}
+        type="checkbox"
+        checked={on === gestures.length}
+        onChange={() => onSetEnabled(gestures.map((g) => g.id), on < gestures.length)}
+      />
+      {label}
+      {some && <span className="muted">({on} of {gestures.length} on)</span>}
+    </label>
   );
 }
 

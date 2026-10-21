@@ -23,6 +23,7 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
 | Select a breath or section, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
 | **E** | Compare with and without your phrasing |
+| Untick a breath or section in the list | Hear the piece without it, keeping its settings (**Breaths** / **Sections** switch them all) |
 | **D** | Compare with and without dynamics |
 | **Space**, double-click a note | Play/pause, play from that note |
 | Click the tempo lane | Seek; select the gesture under the cursor |

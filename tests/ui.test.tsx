@@ -169,6 +169,34 @@ describe('app', () => {
     expect(text()).toContain('Slow down to 85%');
     expect(text()).toContain('Speed up to 98%');
 
+    // Each gesture switches off from the list without being deleted: it stops playing (no band in the tempo lane).
+    const rowBox = (label: string) =>
+      [...document.querySelectorAll<HTMLLIElement>('.list li.gesture-row')].find((li) => li.textContent?.includes(label))!.querySelector('input')!;
+    const group = (label: string) =>
+      [...document.querySelectorAll<HTMLLabelElement>('.list-groups label')].find((l) => l.textContent?.startsWith(label))!.querySelector('input')!;
+    const bands = document.querySelectorAll('.band').length;
+    const breathRows = () => [...document.querySelectorAll('.list li.gesture-row')].filter((li) => li.textContent?.includes('Breath'));
+    expect(breathRows()).toHaveLength(2);
+    await click(breathRows()[0].querySelector('input')!);
+    expect(breathRows()[0].querySelector('button')!.classList.contains('off')).toBe(true);
+    expect(document.querySelectorAll('.band').length).toBeLessThan(bands);
+    expect(document.querySelectorAll('.breath-marker.off').length).toBe(1);
+    expect(group('Breaths').indeterminate).toBe(true);
+    expect(text()).toContain('Breaths(1 of 2 on)');
+    // The group box turns them all back on, then all off; the sections stay as they were.
+    await click(group('Breaths'));
+    expect(breathRows().every((li) => li.querySelector('input')!.checked)).toBe(true);
+    expect(document.querySelectorAll('.band').length).toBe(bands);
+    await click(group('Breaths'));
+    expect(breathRows().every((li) => !li.querySelector('input')!.checked)).toBe(true);
+    expect(group('Breaths').indeterminate).toBe(false);
+    expect(group('Sections').checked).toBe(true);
+    await click(rowBox('Slow down to 85%'));
+    expect(group('Sections').indeterminate).toBe(true);
+    await click(group('Sections'));
+    await click(group('Breaths'));
+    expect(document.querySelectorAll('.band').length).toBe(bands);
+
     // Clear all removes every gesture after confirming, and undo brings them back.
     const count = document.querySelectorAll('.list li button').length;
     window.confirm = () => true;
