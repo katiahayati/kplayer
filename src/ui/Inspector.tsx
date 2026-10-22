@@ -195,9 +195,8 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
         <span className="swatch breath" />
         Breathe after <kbd>B</kbd>
       </button>
-      <h3>
-        Tempo change {noteSelection.single && <span className="muted">· over this note, or Select to… a later one</span>}
-      </h3>
+      <h3>Tempo change</h3>
+      {noteSelection.single && <p className="note kinds-note">Over this note, or use Select to… for a passage.</p>}
       <div className="kinds">
         {kinds.map(([kind, label]) => (
           <button key={kind} className={`kind ${kind}`} onClick={() => onAddSection(kind)}>
