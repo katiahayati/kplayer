@@ -25,7 +25,8 @@ export function Switch(p: {
       ref={ref}
       type="checkbox"
       className="switch"
-      role="switch"
+      // A switch can't be half on: a group with only some on is a checkbox in its mixed state.
+      role={p.indeterminate ? undefined : 'switch'}
       checked={p.checked}
       disabled={p.disabled}
       aria-label={p.ariaLabel}
@@ -62,7 +63,11 @@ export function Slider(p: {
   );
 }
 
-/** A button that opens a panel under it. The panel gets `close` to shut itself (after picking a menu item, say). */
+/**
+ * A button that opens a panel under it. The panel gets `close` to shut itself (after picking a menu item, say).
+ * Opening moves focus into the panel; Escape closes it and returns focus to the button. In a menu, the arrow
+ * keys, Home and End move between its items.
+ */
 export function Popover(p: {
   button: ReactNode;
   title?: string;
@@ -75,13 +80,17 @@ export function Popover(p: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>('[role=menuitem], button, input, [tabindex]')?.focus();
     const down = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
     const key = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
       setOpen(false);
+      buttonRef.current?.focus();
     };
     document.addEventListener('pointerdown', down);
     window.addEventListener('keydown', key, true);
@@ -92,10 +101,34 @@ export function Popover(p: {
   }, [open]);
   return (
     <div className={`popover${p.className ? ` ${p.className}` : ''}`} ref={ref}>
-      <button className={`popover-button${open ? ' open' : ''}`} onClick={() => setOpen((o) => !o)} title={p.title} aria-label={p.ariaLabel} aria-expanded={open}>
+      <button
+        ref={buttonRef}
+        className={`popover-button${open ? ' open' : ''}`}
+        onClick={() => setOpen((o) => !o)}
+        title={p.title}
+        aria-label={p.ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="true"
+      >
         {p.button}
       </button>
-      {open && <div className={`popover-panel ${p.align ?? 'left'}${p.up ? ' up' : ''}`}>{p.children(() => setOpen(false))}</div>}
+      {open && (
+        <div ref={panelRef} className={`popover-panel ${p.align ?? 'left'}${p.up ? ' up' : ''}`} onKeyDown={menuKeys}>
+          {p.children(() => setOpen(false))}
+        </div>
+      )}
     </div>
   );
+}
+
+/** Arrow keys, Home and End between a menu's items. */
+function menuKeys(e: React.KeyboardEvent<HTMLDivElement>) {
+  const items = [...e.currentTarget.querySelectorAll<HTMLElement>('[role=menuitem]')];
+  if (!items.length) return;
+  const i = items.indexOf(document.activeElement as HTMLElement);
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+  if (to === undefined) return;
+  e.preventDefault();
+  e.stopPropagation();
+  items[(to + items.length) % items.length].focus();
 }

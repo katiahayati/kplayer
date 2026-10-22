@@ -495,18 +495,29 @@ input[type='range']:disabled {
 }
 
 .error {
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: color-mix(in srgb, var(--accent) 12%, var(--panel));
   color: var(--text);
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  padding: 10px 16px;
-  cursor: pointer;
+  padding: 6px 8px 6px 16px;
 }
 
-.error::after {
-  content: 'Click to dismiss';
-  float: right;
-  color: var(--muted);
-  font-size: 12px;
+.error span {
+  flex: 1;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* ---- Layout ---- */
@@ -517,6 +528,20 @@ input[type='range']:disabled {
   grid-template-rows: auto auto 1fr auto;
   /* Never wider than the window: the tempo lane sizes itself to what it's given. */
   grid-template-columns: minmax(0, 1fr);
+}
+
+/* Each region keeps its row whether or not an error is showing. */
+.topbar {
+  grid-row: 1;
+}
+
+.workspace,
+.empty {
+  grid-row: 3;
+}
+
+.dock {
+  grid-row: 4;
 }
 
 /* ---- Top bar ---- */
@@ -592,6 +617,11 @@ input[type='range']:disabled {
   overflow: auto;
   min-height: 0;
   padding: 20px;
+}
+
+.score-scroll:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--select) 70%, transparent);
+  outline-offset: -4px;
 }
 
 .score-pages {
@@ -1190,6 +1220,11 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   pointer-events: none;
 }
 
+.chip-toggle:has(input:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--select) 70%, transparent);
+  outline-offset: 2px;
+}
+
 .chip-toggle:has(input:checked) {
   background: var(--on);
   border-color: var(--on);
@@ -1534,7 +1569,6 @@ button.play:hover:not(:disabled) {
 /* ---- Welcome ---- */
 
 .empty {
-  grid-row: 3;
   display: flex;
   flex-direction: column;
   align-items: center;

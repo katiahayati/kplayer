@@ -23,6 +23,8 @@ export interface RenderedScore {
   /** Written dynamics and hairpins, placed in the played score. */
   dynamics: DynamicMark[];
   hairpins: HairpinMark[];
+  /** Note ID → its pitch as spelled in the score ("D♯5"). */
+  pitchNames: Map<string, string>;
 }
 
 export interface LoadedScore extends RenderedScore {
@@ -122,7 +124,8 @@ export function renderLoaded(tk: VerovioToolkit, { tremolos: expand = true } = {
     if (!staffSpans.has(staff)) staffSpans.set(staff, []);
     staffSpans.get(staff)!.push(...spans);
   }
-  return { pages, timemap, index, events, staffOf, staffSpans, breathMarks: findBreathMarks(docs, index, attrOf), ...placeMarks(index, content) };
+  const pitchNames = new Map(content.notes.flatMap((n) => (n.name ? [[n.id, n.name] as const] : [])));
+  return { pages, timemap, index, events, staffOf, staffSpans, breathMarks: findBreathMarks(docs, index, attrOf), ...placeMarks(index, content), pitchNames };
 }
 
 function base64ToBytes(b64: string): Uint8Array {

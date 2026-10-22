@@ -130,6 +130,19 @@ describe('app', () => {
     expect(text()).toContain('Passage');
     expect(text()).not.toContain('Select the last note of the passage');
 
+    // From the keyboard: the arrow keys walk the notes, Shift extends to a passage, and a screen reader hears where.
+    const key = (k: string, init: KeyboardEventInit = {}) =>
+      act(async () => void document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...init })));
+    const said = () => document.querySelector('[role=status].sr-only')?.textContent ?? '';
+    await key('Escape');
+    await click(voiceBar1[0]);
+    expect(said()).toMatch(/^[A-G][♯♭]?\d, m\. 1, ♩1, /);
+    await key('ArrowRight');
+    expect(said()).toMatch(/^[A-G][♯♭]?\d, m\. 1, ♩2, /);
+    await key('ArrowRight', { shiftKey: true });
+    expect(said()).toBe('Passage, m. 1, ♩2 to m. 1, ♩5'); // to the end of the half note on beat 3
+    expect(text()).toContain('Passage');
+
     // A Slow down keeps its tempo after it ends: past it, the panel shows it as holding.
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     await click(voiceBar1[0]);

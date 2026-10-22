@@ -68,6 +68,20 @@ describe('reading the score', () => {
   it("reads the same pitches Verovio plays", () => {
     for (const n of readMei(tk.getMEI()).notes) expect(n.pitch).toBe(tk.getMIDIValuesForElement(n.id).pitch);
   });
+
+  it('spells each pitch as the score does, the key signature included', () => {
+    // Six sharps: what sounds as E-flat is written D-sharp, by the key signature or by an accidental.
+    const mei = `<measure xml:id="m1"><staff n="1"><layer n="1">
+      <note xml:id="a" pname="d" oct="5" accid.ges="s"/>
+      <note xml:id="b" pname="e" oct="4"><accid accid="f"/></note>
+      <note xml:id="c" pname="c" oct="4"/>
+    </layer></staff></measure>`;
+    expect(readMei(mei).notes.map((n) => [n.name, n.pitch])).toEqual([
+      ['D♯5', 75],
+      ['E♭4', 63],
+      ['C4', 60],
+    ]);
+  });
 });
 
 describe('written dynamics', () => {

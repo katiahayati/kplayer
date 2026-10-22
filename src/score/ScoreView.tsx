@@ -6,6 +6,8 @@ export interface BreathMarker {
   gestureId: string;
   /** Score position of the breath (first pass). */
   q: number;
+  /** What it is, for screen readers and the tooltip: "Breath after m. 3, ♩4, 300 ms". */
+  label: string;
   selected: boolean;
   clamped: boolean;
   /** Switched off: kept, but not played. */
@@ -87,12 +89,21 @@ export function ScoreView({ score, pages, playQ, playing, selectedIds, rangeIds,
       const r = first.getBoundingClientRect();
       const s = scroller.getBoundingClientRect();
       if (r.top < s.top || r.bottom > s.bottom) {
-        scroller.scrollTo({ top: scroller.scrollTop + r.top - s.top - 24, behavior: 'smooth' });
+        scroller.scrollTo({ top: scroller.scrollTop + r.top - s.top - 24, behavior: smoothScroll() });
       }
     }
   }, [playQ, playing, sounding, pages]);
 
-  useEffect(() => toggleClass(pagesRef.current, 'selected', selectedIds), [selectedIds, score, pages]);
+  useEffect(() => {
+    toggleClass(pagesRef.current, 'selected', selectedIds);
+    // Keep the selection in sight (it moves off-screen when the arrow keys walk it along).
+    const last = [...selectedIds].map(el).filter((e): e is Element => !!e).at(-1);
+    const scroller = scrollRef.current;
+    if (!last || !scroller) return;
+    const r = last.getBoundingClientRect();
+    const s = scroller.getBoundingClientRect();
+    if (r.top < s.top || r.bottom > s.bottom) last.scrollIntoView?.({ block: 'center', behavior: smoothScroll() });
+  }, [selectedIds, score, pages]);
   useEffect(() => toggleClass(pagesRef.current, 'in-range', rangeIds), [rangeIds, score, pages]);
 
   useLayoutEffect(() => {
@@ -153,7 +164,12 @@ export function ScoreView({ score, pages, playQ, playing, selectedIds, rangeIds,
   };
 
   return (
-    <div className="score-scroll" ref={scrollRef}>
+    <div
+      className="score-scroll"
+      ref={scrollRef}
+      tabIndex={0}
+      aria-label="Score. Arrow keys move between notes, Shift with an arrow selects a passage, Enter plays from the selection."
+    >
       <div className={`score-pages${picking ? ' picking' : ''}`} ref={pagesRef} onClick={(e) => handleClick(e, false)} onDoubleClick={(e) => handleClick(e, true)}>
         <Pages pages={pages} />
         {markerPos.map(({ marker, left, top }) => (
@@ -161,7 +177,8 @@ export function ScoreView({ score, pages, playQ, playing, selectedIds, rangeIds,
             key={marker.gestureId}
             className={`breath-marker${marker.selected ? ' selected' : ''}${marker.clamped ? ' clamped' : ''}${marker.off ? ' off' : ''}`}
             style={{ left, top }}
-            title={marker.off ? 'Breath (off)' : 'Breath'}
+            title={marker.label}
+            aria-label={marker.label}
             onClick={(e) => {
               e.stopPropagation();
               onBreathClick(marker.gestureId);
@@ -178,6 +195,10 @@ export function ScoreView({ score, pages, playQ, playing, selectedIds, rangeIds,
 const Pages = memo(function Pages({ pages }: { pages: string[] }) {
   return <div className="svg-pages" dangerouslySetInnerHTML={{ __html: pages.join('') }} />;
 });
+
+/** Smooth scrolling, unless the system asks for reduced motion. */
+const smoothScroll = (): ScrollBehavior =>
+  typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
 
 function toggleClass(root: HTMLElement | null, cls: string, ids: ReadonlySet<string>) {
   if (!root) return;

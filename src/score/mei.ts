@@ -11,6 +11,8 @@ export interface MeiNote {
   layer: number;
   /** MIDI pitch as written (sounding pitch for non-transposing instruments). */
   pitch?: number;
+  /** Spelled as written, with the key signature's accidentals: "D♯5", not "E♭5". */
+  name?: string;
   grace: boolean;
 }
 
@@ -114,6 +116,7 @@ export function attachNoteInfo<N extends { midi: number; qOn: number; staff?: nu
 }
 
 const STEPS: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+const SIGNS: Record<string, string> = { s: '♯', f: '♭', ss: '𝄪', x: '𝄪', ff: '𝄫', ns: '♯', nf: '♭' };
 const ALTER: Record<string, number> = { s: 1, f: -1, ss: 2, x: 2, ff: -2, xs: 3, ts: 3, tf: -3, n: 0, nf: -1, ns: 1 };
 
 const attr = (attrs: string, name: string): string | undefined =>
@@ -138,6 +141,9 @@ export function readMei(mei: string): MeiContent {
     const oct = attr(attrs, 'oct.ges') ?? attr(attrs, 'oct');
     const accid = attr(attrs, 'accid.ges') ?? attr(attrs, 'accid') ?? open.accid;
     if (pname && oct && STEPS[pname] !== undefined) note.pitch = 12 * (Number(oct) + 1) + STEPS[pname] + (ALTER[accid ?? 'n'] ?? 0);
+    const written = attr(attrs, 'pname');
+    const writtenOct = attr(attrs, 'oct');
+    if (written && writtenOct) note.name = `${written.toUpperCase()}${SIGNS[attr(attrs, 'accid') ?? open.accid ?? accid ?? ''] ?? ''}${writtenOct}`;
     notes.push(note);
     open = undefined;
   };

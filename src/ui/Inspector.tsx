@@ -75,8 +75,11 @@ export function Inspector(p: Props) {
   const tabButton = (id: Tab, label: string, count?: ReactNode) => (
     <button
       role="tab"
+      id={`tab-${id}`}
       data-tab={id}
       aria-selected={tab === id}
+      aria-controls="inspector-panel"
+      tabIndex={tab === id ? 0 : -1}
       className={tab === id ? 'selected' : ''}
       onClick={() => {
         setTab(id);
@@ -89,7 +92,20 @@ export function Inspector(p: Props) {
   );
   return (
     <aside className={`inspector${collapsed ? ' collapsed' : ''}`}>
-      <div className="tabs" role="tablist">
+      <div
+        className="tabs"
+        role="tablist"
+        aria-label="Panel"
+        onKeyDown={(e) => {
+          // Left and right move between the tabs, as in any tab list.
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+          e.preventDefault();
+          e.stopPropagation();
+          const next: Tab = tab === 'phrasing' ? 'dynamics' : 'phrasing';
+          setTab(next);
+          e.currentTarget.querySelector<HTMLElement>(`[data-tab=${next}]`)?.focus();
+        }}
+      >
         {tabButton('phrasing', 'Phrasing', p.gestures.length ? <span className="count">{p.gestures.length}</span> : undefined)}
         {tabButton('dynamics', 'Dynamics', p.hasDynamics ? <span className="dot" /> : undefined)}
         <button className="icon collapse" onClick={() => setCollapsed((c) => !c)} aria-label={collapsed ? 'Show the panel' : 'Hide the panel'} title={collapsed ? 'Show the panel' : 'Hide the panel'}>
@@ -97,12 +113,12 @@ export function Inspector(p: Props) {
         </button>
       </div>
       {tab === 'phrasing' ? (
-        <div className="tab-body" role="tabpanel">
+        <div className="tab-body" role="tabpanel" id="inspector-panel" aria-labelledby="tab-phrasing">
           {p.gesture ? <GestureEditor {...p} gesture={p.gesture} /> : <SelectionActions {...p} />}
           <GestureList {...p} />
         </div>
       ) : (
-        <div className="tab-body" role="tabpanel">
+        <div className="tab-body" role="tabpanel" id="inspector-panel" aria-labelledby="tab-dynamics">
           {p.children}
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, X } from 'lucide-react';
 import { Player, unlockAudio, type SoundBankSource } from './audio/player';
 import { anchorFor, breathWindow, loopAround, nearestSpan, playedMeasureAt, resolveAnchor } from './perf/anchors';
 import { compileGestures } from './perf/compile';
@@ -8,12 +8,13 @@ import { BREATH_PRESETS, DEFAULT_BREATH_PRESET, SECTION_DEFAULTS } from './perf/
 import { renderPerformanceMidi } from './perf/render';
 import { buildTimeMap, sectionLevelAt, type TimeMap, type TimingGesture } from './perf/timeline';
 import { emptyDoc, type Anchor, type Gesture, type PartSetting, type PerformanceDoc } from './perf/types';
+import { navNotes, noteAtOrAfter, pitchName, stepNote, type NavDir } from './score/noteNav';
 import { ScoreView, type BreathMarker } from './score/ScoreView';
 import { layoutPages, loadScore, VEROVIO_OPTIONS, type LoadedScore } from './score/verovio';
 import { loadSaved, parseDoc, save, saveFile, type FileKind } from './storage/persist';
 import { looksLikePiece, OPEN_ACCEPT, PIECE_EXTENSION, readPiece, writePiece } from './storage/piece';
 import { DynamicsPanel } from './ui/DynamicsPanel';
-import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
+import { anchorLabel, Inspector, type PickField, type RampInfo, type SectionKind } from './ui/Inspector';
 import { formatTime, TempoLane } from './ui/TempoLane';
 import { PlayerBar, TopBar } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
@@ -214,7 +215,7 @@ export default function App() {
       return player.current;
     } catch (e) {
       playerLoading.current = undefined;
-      setError(`Couldn't start audio: ${(e as Error).message}. Did you run "npm run fetch-soundfont"?`);
+      setError(`Couldn't load the sounds (${(e as Error).message}). Check your connection, then press Play to try again.`);
     } finally {
       setSoundStatus(undefined);
     }
@@ -441,7 +442,8 @@ export default function App() {
       const q = resolveAnchor(score.index, g.at)[0];
       if (q === undefined) return [];
       const clamped = !!map?.breaths.some((b) => b.id === g.id && b.clamped);
-      return [{ gestureId: g.id, q, selected: selection.kind === 'gesture' && selection.id === g.id, clamped, off: g.enabled === false }];
+      const label = `Breath after ${anchorLabel(g.at)}, ${g.extraMs} ms${g.enabled === false ? ' (off)' : ''}`;
+      return [{ gestureId: g.id, q, label, selected: selection.kind === 'gesture' && selection.id === g.id, clamped, off: g.enabled === false }];
     });
   }, [score, doc.gestures, selection, map]);
 
@@ -469,6 +471,18 @@ export default function App() {
   );
   /** Plays from the start of the selected notes. */
   const playFromSelection = () => noteRange && seekTo(noteRange.q0, true);
+  /** Every note, for moving the selection with the arrow keys. */
+  const noteOrder = useMemo(() => (score ? navNotes(score.events.parts) : []), [score]);
+  /** What a screen reader says about the selection: where it is, and for one note, its pitch and part. */
+  const announcement = useMemo(() => {
+    if (!score || !noteRange || selection.kind !== 'notes') return '';
+    if (!noteRange.single) return `Passage, ${anchorLabel(noteRange.from)} to ${anchorLabel(noteRange.to)}`;
+    const part = score.events.parts.find((p) => p.notes.some((n) => n.id === selection.anchorId));
+    const note = part?.notes.find((n) => n.id === selection.anchorId);
+    const name = score.pitchNames.get(selection.anchorId) ?? (note && pitchName(note.midi));
+    return note ? `${name}, ${anchorLabel(noteRange.from)}, ${part!.name}` : `Rest, ${anchorLabel(noteRange.from)}`;
+  }, [score, noteRange, selection]);
+
   // Extending only makes sense from a selected note.
   useEffect(() => {
     if (selection.kind !== 'notes') setExtending(false);
@@ -553,8 +567,25 @@ export default function App() {
   const keys = useRef<(e: KeyboardEvent) => void>(() => {});
   keys.current = (e: KeyboardEvent) => {
     const t = e.target as HTMLElement;
-    if (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'range' && (t as HTMLInputElement).type !== 'checkbox')) return;
+    // Typing, and a focused switch, keep their keys (Space toggles a switch); a slider keeps its arrows.
+    if (t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || (t.tagName === 'INPUT' && (t as HTMLInputElement).type !== 'range')) return;
     const mod = e.ctrlKey || e.metaKey;
+    // The arrow keys and Enter work on the score: when focus is on it or nowhere in particular.
+    const onScore = t === document.body || !!t.closest?.('.score-scroll');
+    const arrow = ({ ArrowRight: 'next', ArrowLeft: 'prev', ArrowUp: 'up', ArrowDown: 'down' } as Record<string, NavDir>)[e.key];
+    if (arrow && onScore && !mod && score) {
+      e.preventDefault();
+      if (pickField) return;
+      const from = selection.kind === 'notes' ? selection.focusId : undefined;
+      const to = from ? stepNote(noteOrder, from, arrow) : noteAtOrAfter(noteOrder, playQRef.current);
+      if (to) onNoteClick(to.id, { shift: e.shiftKey && !!from, double: false });
+      return;
+    }
+    if (e.key === 'Enter' && onScore && selection.kind === 'notes') {
+      e.preventDefault();
+      playFromSelection();
+      return;
+    }
     if (e.key === ' ') {
       e.preventDefault();
       void togglePlay();
@@ -628,10 +659,16 @@ export default function App() {
         onRedo={history.redo}
       />
       {error && (
-        <div className="error" onClick={() => setError(undefined)}>
-          {error}
+        <div className="error" role="alert">
+          <span>{error}</span>
+          <button className="icon" onClick={() => setError(undefined)} aria-label="Dismiss" title="Dismiss">
+            <X size={16} />
+          </button>
         </div>
       )}
+      <div className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </div>
       {score && map ? (
         <>
           <main className="workspace">
