@@ -55,6 +55,8 @@ export default function App() {
   const [status, setStatus] = useState<string>();
   /** Progress of loading the sounds, which starts as soon as the page opens. */
   const [soundStatus, setSoundStatus] = useState<string>();
+  /** The synth is getting a newly opened piece's samples ready, and has been for a moment. */
+  const [preparing, setPreparing] = useState(false);
   const [hall, setHall] = useState(readHall);
   const hallRef = useRef(hall);
   hallRef.current = hall;
@@ -184,12 +186,16 @@ export default function App() {
   useEffect(() => {
     let raf = 0;
     let wasOn = false;
-    const tick = () => {
+    let preparingSince: number | undefined;
+    const tick = (now: number) => {
       const p = player.current;
       const m = loadedMap.current;
       if (p && m) {
         const on = p.playing;
         setPlaying(on);
+        // Said only when it takes a while (the first time a piece is opened), not on every quick reload.
+        preparingSince = p.preparing ? (preparingSince ?? now) : undefined;
+        setPreparing(preparingSince !== undefined && now - preparingSince > 300);
         if (on) playhead.set(Math.min(m.qAt(p.time), m.endQ));
         else if (wasOn && p.finished) {
           // The end: back to the selected notes (or the beginning), ready to play again from there.
@@ -676,7 +682,7 @@ export default function App() {
           playhead={playhead}
           positionAt={positionAt}
           tempoAt={tempoAt}
-          status={status ?? soundStatus}
+          status={status ?? soundStatus ?? (preparing ? 'Preparing sounds…' : undefined)}
           expressive={expressive}
           dynamics={dynamicsOn}
           hall={hall}

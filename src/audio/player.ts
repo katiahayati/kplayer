@@ -37,8 +37,13 @@ export function unlockAudio(): void {
   void context?.resume();
 }
 
+/** How far the smoothed playhead may run ahead of the audio clock (which moves in steps of a few ms). */
+const AHEAD_OF_AUDIO = 0.1;
+
 export class Player {
   private offset = 0;
+  /** Where the loaded piece starts, in performance seconds: the playhead waits there while it's prepared. */
+  private startAt = 0;
 
   private constructor(
     private readonly ctx: AudioContext,
@@ -97,7 +102,7 @@ export class Player {
     const binary = midi.slice().buffer as ArrayBuffer;
     this.seq.loadNewSongList([{ binary, fileName: 'performance.mid' }]);
     this.seq.loopCount = opts.loop ? Infinity : 0;
-    this.seq.currentTime = Math.max(0, (opts.at ?? this.offset) - this.offset);
+    this.seek(opts.at ?? this.offset);
     if (opts.play ?? wasPlaying) this.play();
     else this.seq.pause();
   }
@@ -129,13 +134,28 @@ export class Player {
     return this.seq.isFinished;
   }
 
-  /** Smoothed playback position in performance seconds. */
+  /**
+   * The synth is getting a newly loaded piece ready: unpacking every sample it uses, the first time, which
+   * holds up the audio for seconds (longer on a phone). Play waits for it.
+   */
+  get preparing(): boolean {
+    return this.seq.midiData === undefined;
+  }
+
+  /**
+   * Smoothed playback position in performance seconds. The smoothing runs on the wall clock and only slowly
+   * follows the audio, so while the audio is held up it would run ahead and then jump back: it's kept with
+   * the audio instead.
+   */
   get time(): number {
-    return this.offset + this.seq.currentHighResolutionTime;
+    if (this.preparing) return this.startAt;
+    return this.offset + Math.min(this.seq.currentHighResolutionTime, this.seq.currentTime + AHEAD_OF_AUDIO);
   }
 
   seek(t: number): void {
-    this.seq.currentTime = Math.max(0, t - this.offset);
+    const at = Math.max(0, t - this.offset);
+    this.seq.currentTime = at;
+    this.startAt = this.offset + at;
   }
 }
 
