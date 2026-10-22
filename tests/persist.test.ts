@@ -57,4 +57,9 @@ describe('loading version 1 files', () => {
   it('leaves version 2 files alone', () => {
     expect(parseDoc(JSON.stringify(doc))).toEqual(doc);
   });
+
+  it("doesn't keep notes on where a file came from", () => {
+    const noted = { ...doc, source: 'Fitted to a recording', dynamicsSource: 'Loudness shape fitted to a recording' };
+    expect(parseDoc(JSON.stringify(noted))).toEqual(doc);
+  });
 });

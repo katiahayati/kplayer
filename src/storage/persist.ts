@@ -47,7 +47,10 @@ export function parseDoc(raw: unknown): PerformanceDoc {
   if (!doc || (doc.version !== 1 && doc.version !== 2) || !Array.isArray(doc.gestures)) throw new Error('Not a kplayer performance file');
   let gestures = doc.gestures.map(dropLegacyFields);
   if (doc.version === 1) gestures = sectionsToTargets(gestures);
-  return { ...emptyDoc(), ...doc, version: 2, parts: doc.parts ?? {}, gestures };
+  // A tool's note on where the file came from ("Fitted to … by the recording aligner") isn't kept: once the
+  // performance is edited here, it would no longer be true.
+  const { source, dynamicsSource, ...rest } = doc as typeof doc & { source?: string; dynamicsSource?: string };
+  return { ...emptyDoc(), ...rest, version: 2, parts: doc.parts ?? {}, gestures };
 }
 
 /**
