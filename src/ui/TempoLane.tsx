@@ -1,13 +1,14 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ScoreIndex } from '../perf/anchors';
 import { sectionLevelAt, type TimeMap, type TimingGesture } from '../perf/timeline';
+import { usePlayhead, type Playhead } from './playhead';
 
 interface Props {
   map: TimeMap;
   index: ScoreIndex;
   timing: TimingGesture[];
   selectedId?: string;
-  playQ: number;
+  playhead: Playhead;
   loop?: { q0: number; q1: number };
   onSeek: (q: number) => void;
   onSelect: (gestureId: string) => void;
@@ -18,7 +19,7 @@ const DEFAULT_HEIGHT = 112;
 const PAD_BOTTOM = 22;
 
 /** The whole piece's tempo curve, with gesture spans, breaths and the playhead. */
-export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek, onSelect }: Props) {
+export function TempoLane({ map, index, timing, selectedId, playhead, loop, onSeek, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
@@ -139,14 +140,26 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
             <line key={`t${b.key}`} className="breath-tick" x1={x(b.breathQ)} x2={x(b.breathQ)} y1={0} y2={8} />
           ),
         )}
-        <line className="playhead" x1={x(playQ)} x2={x(playQ)} y1={0} y2={floor} />
-        <path className="playhead-head" d={`M${(x(playQ) - 5).toFixed(1)} 0 L${(x(playQ) + 5).toFixed(1)} 0 L${x(playQ).toFixed(1)} 6 Z`} />
         {hover !== undefined && <line className="hover-line" x1={x(hover)} x2={x(hover)} y1={0} y2={height} />}
       </svg>
+      <PlayheadMark playhead={playhead} x={x} floor={floor} />
       <div className="lane-label">Tempo</div>
-      <div className="lane-readout">{hoverInfo ?? describe(playQ, map, index)}</div>
+      <div className="lane-readout">{hoverInfo ?? <Readout playhead={playhead} map={map} index={index} />}</div>
     </div>
   );
+}
+
+/**
+ * The playhead's line and marker, over the lane rather than in it: it moves by a transform, which the
+ * compositor does without repainting anything, so playing doesn't redraw the lane (or the score above it).
+ */
+function PlayheadMark({ playhead, x, floor }: { playhead: Playhead; x: (q: number) => number; floor: number }) {
+  const px = usePlayhead(playhead, (q) => Math.round(x(q) * 2) / 2);
+  return <div className="playhead" style={{ height: floor, transform: `translateX(${px}px)` }} />;
+}
+
+function Readout({ playhead, map, index }: { playhead: Playhead; map: TimeMap; index: ScoreIndex }) {
+  return <>{usePlayhead(playhead, (q) => describe(q, map, index))}</>;
 }
 
 function describe(q: number, map: TimeMap, index: ScoreIndex): string {

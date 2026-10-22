@@ -7,6 +7,7 @@ import type { ScorePart } from '../perf/render';
 import type { PartSetting } from '../perf/types';
 import { OPEN_ACCEPT } from '../storage/piece';
 import { Popover, Switch } from './controls';
+import { usePlayhead, type Playhead } from './playhead';
 
 interface TopBarProps {
   title?: string;
@@ -90,11 +91,11 @@ interface PlayerBarProps {
   /** A phone: the sound settings fold into one menu. */
   compact?: boolean;
   playing: boolean;
-  /** "m. 12 · 0:42.1 / 2:06.8" */
-  position: string;
-  /** Current tempo at the playhead, and how far your phrasing moves it from the written tempo. */
-  bpm?: number;
-  bpmChange?: number;
+  playhead: Playhead;
+  /** "m. 12 · 0:42.1 / 2:06.8" at a score position. */
+  positionAt: (q: number) => string;
+  /** The tempo at a score position and how far your phrasing moves it from the written tempo: "112|-15". */
+  tempoAt: (q: number) => string;
   status?: string;
   expressive: boolean;
   dynamics: boolean;
@@ -115,7 +116,6 @@ interface PlayerBarProps {
 }
 
 export function PlayerBar(p: PlayerBarProps) {
-  const [bar, time] = p.position.split(' · ');
   const muted = p.parts.filter((part) => p.partSettings[part.index]?.mute).length;
   const listen = (
     <div className="listen">
@@ -186,22 +186,8 @@ export function PlayerBar(p: PlayerBarProps) {
           <span>{p.playing ? 'Pause' : 'Play'}</span>
         </button>
       </div>
-      <span className="position" title="Where the playhead is: bar, and time">
-        <strong>{bar}</strong>
-        {time && <span className="sep"> · </span>}
-        {time && <span className="time">{time}</span>}
-      </span>
-      {p.bpm !== undefined && (
-        <span className="bpm" title="Tempo at the playhead, and how far your phrasing moves it from the written tempo">
-          ♩ = {Math.round(p.bpm)}
-          {!!p.bpmChange && (
-            <span className={`change ${p.bpmChange < 0 ? 'slower' : 'faster'}`}>
-              {p.bpmChange > 0 ? '+' : '−'}
-              {Math.abs(p.bpmChange)}%
-            </span>
-          )}
-        </span>
-      )}
+      <Position playhead={p.playhead} positionAt={p.positionAt} />
+      <Tempo playhead={p.playhead} tempoAt={p.tempoAt} />
       {p.loopLabel && (
         <span className="pill loop">
           <Repeat size={14} /> {p.loopLabel}
@@ -244,6 +230,36 @@ export function PlayerBar(p: PlayerBarProps) {
         </>
       )}
     </div>
+  );
+}
+
+/** Bar and time at the playhead: redrawn as they change (ten times a second while playing), not every frame. */
+function Position({ playhead, positionAt }: { playhead: Playhead; positionAt: (q: number) => string }) {
+  const [bar, time] = usePlayhead(playhead, positionAt).split(' · ');
+  return (
+    <span className="position" title="Where the playhead is: bar, and time">
+      <strong>{bar}</strong>
+      {time && <span className="sep"> · </span>}
+      {time && <span className="time">{time}</span>}
+    </span>
+  );
+}
+
+/** The tempo at the playhead, and how far your phrasing moves it from the written tempo. */
+function Tempo({ playhead, tempoAt }: { playhead: Playhead; tempoAt: (q: number) => string }) {
+  const value = usePlayhead(playhead, tempoAt);
+  if (!value) return null;
+  const [bpm, change] = value.split('|').map(Number);
+  return (
+    <span className="bpm" title="Tempo at the playhead, and how far your phrasing moves it from the written tempo">
+      ♩ = {bpm}
+      {!!change && (
+        <span className={`change ${change < 0 ? 'slower' : 'faster'}`}>
+          {change > 0 ? '+' : '−'}
+          {Math.abs(change)}%
+        </span>
+      )}
+    </span>
   );
 }
 

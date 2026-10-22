@@ -668,6 +668,15 @@ input[type='range']:disabled {
   touch-action: manipulation;
 }
 
+/*
+ * A score is thousands of small glyphs. Drawn as one picture, every change while playing repainted all of
+ * it; as pages, the browser skips those out of sight (their size is remembered once they've been seen).
+ */
+.svg-pages .page {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
 .svg-pages svg {
   display: block;
   width: 100%;
@@ -1285,6 +1294,8 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   border-top: 1px solid var(--line);
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   box-shadow: var(--shadow-dock);
+  /* Its readouts change many times a second while playing: a layer of its own keeps that from repainting the score. */
+  will-change: transform;
 }
 
 .playerbar {
@@ -1590,13 +1601,25 @@ button.play:hover:not(:disabled) {
   font-variant-numeric: tabular-nums;
 }
 
-.playhead {
-  stroke: var(--text);
-  stroke-width: 1.5;
+.tempo-lane .playhead {
+  position: absolute;
+  top: 0;
+  left: -0.75px;
+  width: 1.5px;
+  background: var(--text);
+  pointer-events: none;
+  will-change: transform;
 }
 
-.playhead-head {
-  fill: var(--text);
+/* The marker at the top of the playhead line. */
+.tempo-lane .playhead::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -4.25px;
+  border: 5px solid transparent;
+  border-top: 6px solid var(--text);
+  border-bottom: 0;
 }
 
 .hover-line {

@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronUp, MousePointerClick, MoveRight, Play, PlayCircle, Repeat, Trash2 } from 'lucide-react';
 import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors';
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
 import { Slider, Switch } from './controls';
+import { usePlayhead, type Playhead } from './playhead';
 
 export type SectionKind = 'slower' | 'faster' | 'broaden' | 'push' | 'aTempo';
 /** Where a Slow down / Speed up starts from, for showing it in tempo terms. */
@@ -28,7 +29,7 @@ interface Props {
   spans: Map<string, { lo: number; hi: number }[]>;
   rampInfo: Map<string, RampInfo>;
   /** The playhead, in score position. */
-  playQ: number;
+  playhead: Playhead;
   breathResults: BreathResult[];
   /** Written breath marks in the score that aren't breaths yet. */
   unusedBreathMarks: number;
@@ -351,25 +352,32 @@ function ShapeFields({ g, set, picking, onPick }: { g: ShapeGesture; set: Setter
  * whose tempo is still in force after it ended, and a playhead marker between
  * gestures when none is acting.
  */
-function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, spans, rampInfo, playQ, index }: Props) {
+function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, spans, rampInfo, playhead, index }: Props) {
   const listRef = useRef<HTMLUListElement>(null);
   const eps = 1e-9;
-  const start = (g: Gesture) => resolveAnchor(index, g.type === 'breath' ? g.at : g.from)[0] ?? Infinity;
-  const sorted = [...gestures].sort((a, b) => start(a) - start(b) || order(a) - order(b));
-  const now = new Set(sorted.filter((g) => (spans.get(g.id) ?? []).some((s) => playQ >= s.lo - eps && playQ < s.hi - eps)).map((g) => g.id));
-  // The tempo you hear between sections was set by the last one to finish before the playhead.
-  const tempoSetters = sorted.filter((g) => g.type === 'ramp' || g.type === 'aTempo');
-  const finished = (g: Gesture) => Math.max(-Infinity, ...(spans.get(g.id) ?? []).filter((s) => s.hi <= playQ + eps).map((s) => s.hi));
-  const holding = tempoSetters.some((g) => now.has(g.id))
-    ? undefined
-    : tempoSetters.filter((g) => finished(g) > -Infinity).sort((a, b) => finished(b) - finished(a))[0]?.id;
-  // With nothing acting at the playhead, mark where it sits in the list.
-  const markerAt = now.size ? -1 : (() => {
-    const i = sorted.findIndex((g) => start(g) > playQ + eps);
-    return i === -1 ? sorted.length : i;
-  })();
-  const bar = playedMeasureAt(index, playQ);
-  const focus = now.size ? [...now].join() : `${holding ?? ''}|${markerAt}`;
+  const sorted = useMemo(() => {
+    const start = (g: Gesture) => resolveAnchor(index, g.type === 'breath' ? g.at : g.from)[0] ?? Infinity;
+    return [...gestures].map((g) => ({ g, start: start(g) })).sort((a, b) => a.start - b.start || order(a.g) - order(b.g));
+  }, [gestures, index]);
+  // The tempo you hear between tempo changes was set by the last one to finish before the playhead.
+  const tempoSetters = useMemo(() => sorted.filter(({ g }) => g.type === 'ramp' || g.type === 'aTempo').map(({ g }) => g), [sorted]);
+  // Where the playhead stands among them, as one string: the list redraws only when that changes, not every frame.
+  const state = usePlayhead(playhead, (q) => {
+    const now = sorted.filter(({ g }) => (spans.get(g.id) ?? []).some((s) => q >= s.lo - eps && q < s.hi - eps)).map(({ g }) => g.id);
+    const finished = (g: Gesture) => Math.max(-Infinity, ...(spans.get(g.id) ?? []).filter((s) => s.hi <= q + eps).map((s) => s.hi));
+    const holding = tempoSetters.some((g) => now.includes(g.id))
+      ? ''
+      : tempoSetters.filter((g) => finished(g) > -Infinity).sort((a, b) => finished(b) - finished(a))[0]?.id ?? '';
+    // With nothing acting at the playhead, mark where it sits in the list.
+    const after = sorted.findIndex(({ start }) => start > q + eps);
+    const markerAt = now.length ? -1 : after === -1 ? sorted.length : after;
+    return [now.join(','), holding, markerAt, playedMeasureAt(index, q)?.measureIndex ?? -1].join('|');
+  });
+  const [nowIds, holding, markerStr, barStr] = state.split('|');
+  const now = new Set(nowIds ? nowIds.split(',') : []);
+  const markerAt = Number(markerStr);
+  const bar = Number(barStr);
+  const focus = now.size ? nowIds : `${holding}|${markerAt}`;
 
   useEffect(() => {
     listRef.current?.querySelector('.now, .holding, .playhead-marker')?.scrollIntoView?.({ block: 'nearest' });
@@ -378,7 +386,7 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
   if (!gestures.length) return null;
   const marker = (
     <li key="playhead" className="playhead-marker">
-      playhead{bar ? `, m. ${index.measures[bar.measureIndex]?.label}` : ''}
+      playhead{bar >= 0 ? `, m. ${index.measures[bar]?.label}` : ''}
     </li>
   );
   return (
@@ -397,11 +405,11 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
         </button>
       </div>
       <div className="list-groups">
-        <GroupToggle label="Breaths" title="Every breath on or off" gestures={sorted.filter((g) => g.type === 'breath')} onSetEnabled={onSetEnabled} />
-        <GroupToggle label="Tempo changes" title="Every tempo change on or off" gestures={sorted.filter((g) => g.type !== 'breath')} onSetEnabled={onSetEnabled} />
+        <GroupToggle label="Breaths" title="Every breath on or off" gestures={sorted.map(({ g }) => g).filter((g) => g.type === 'breath')} onSetEnabled={onSetEnabled} />
+        <GroupToggle label="Tempo changes" title="Every tempo change on or off" gestures={sorted.map(({ g }) => g).filter((g) => g.type !== 'breath')} onSetEnabled={onSetEnabled} />
       </div>
       <ul ref={listRef}>
-        {sorted.flatMap((g, i) => {
+        {sorted.flatMap(({ g }, i) => {
           const state = now.has(g.id) ? ' now' : g.id === holding ? ' holding' : '';
           const item = (
             <li key={g.id} className="gesture-row">

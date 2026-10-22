@@ -19,6 +19,7 @@ import { formatTime, TempoLane } from './ui/TempoLane';
 import { PlayerBar, TopBar } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
 import { useMediaQuery } from './ui/useMediaQuery';
+import { createPlayhead } from './ui/playhead';
 
 const SOUND_BANKS: SoundBankSource[] = [
   { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/SalamanderGrandPiano.sf3`, optional: true },
@@ -70,7 +71,8 @@ export default function App() {
   const [picking, setPicking] = useState<{ gestureId: string; field: PickField }>();
   /** Waiting for the note that ends a passage: shift-click without a keyboard. */
   const [extending, setExtending] = useState(false);
-  const [playQ, setPlayQ] = useState(0);
+  /** Where the playhead is: moves every frame while playing, so it's a store the playhead's displays subscribe to. */
+  const [playhead] = useState(createPlayhead);
   const [playing, setPlaying] = useState(false);
 
   const player = useRef<Player | undefined>(undefined);
@@ -80,8 +82,6 @@ export default function App() {
   /** A position (and whether to play) for the next reload, set by seeks that change the loop. */
   const pendingQ = useRef<number | undefined>(undefined);
   const pendingPlay = useRef(false);
-  const playQRef = useRef(0);
-  playQRef.current = playQ;
   /** Where playing again starts once the piece has ended: the selected notes, else the beginning. */
   const restartQRef = useRef(0);
 
@@ -129,7 +129,7 @@ export default function App() {
     const spans = allTiming.filter((g) => g.id === loopGestureId).map(extent);
     if (!spans.length) return undefined;
     // First pass at or after the playhead, else the first.
-    const s = spans.find(([, hi]) => hi >= playQRef.current) ?? spans[0];
+    const s = spans.find(([, hi]) => hi >= playhead.get()) ?? spans[0];
     return loopAround(score.index, s[0], s[1]);
   }, [score, loopGestureId, allTiming]);
 
@@ -162,7 +162,7 @@ export default function App() {
     const { midi, map, loop } = latest.current;
     if (!p || !midi || !map) return;
     const prev = loadedMap.current;
-    let q = pendingQ.current ?? (p.playing && prev ? prev.qAt(p.time) : playQRef.current);
+    let q = pendingQ.current ?? (p.playing && prev ? prev.qAt(p.time) : playhead.get());
     const play = opts.play ?? (pendingPlay.current || undefined);
     pendingQ.current = undefined;
     pendingPlay.current = false;
@@ -170,7 +170,7 @@ export default function App() {
     if (q >= map.endQ - 1e-6) q = restartQRef.current;
     p.load(midi, { offset: loop ? map.T(loop.q0) : 0, loop: !!loop, at: map.T(q), play });
     loadedMap.current = map;
-    setPlayQ(q);
+    playhead.set(q);
   }, []);
 
   useEffect(() => {
@@ -188,10 +188,10 @@ export default function App() {
       if (p && m) {
         const on = p.playing;
         setPlaying(on);
-        if (on) setPlayQ(Math.min(m.qAt(p.time), m.endQ));
+        if (on) playhead.set(Math.min(m.qAt(p.time), m.endQ));
         else if (wasOn && p.finished) {
           // The end: back to the selected notes (or the beginning), ready to play again from there.
-          setPlayQ(restartQRef.current);
+          playhead.set(restartQRef.current);
           p.seek(m.T(restartQRef.current));
         }
         wasOn = on;
@@ -245,9 +245,9 @@ export default function App() {
     if (!loadedMap.current) return pushToPlayer({ play: true });
     if (p.playing) return p.pause();
     const m = loadedMap.current;
-    if (m && (p.finished || playQRef.current >= m.endQ - 1e-6)) {
+    if (m && (p.finished || playhead.get() >= m.endQ - 1e-6)) {
       // A finished sequencer needs reloading; from where the playhead is, unless it's still at the end.
-      pendingQ.current = playQRef.current >= m.endQ - 1e-6 ? restartQRef.current : playQRef.current;
+      pendingQ.current = playhead.get() >= m.endQ - 1e-6 ? restartQRef.current : playhead.get();
       return pushToPlayer({ play: true });
     }
     p.play();
@@ -255,7 +255,7 @@ export default function App() {
 
   const seekTo = useCallback(
     (q: number, play = false) => {
-      setPlayQ(q);
+      playhead.set(q);
       const p = player.current;
       const m = loadedMap.current;
       if (loop && (q < loop.q0 || q >= loop.q1)) {
@@ -305,7 +305,7 @@ export default function App() {
         setLoopGestureId(undefined);
         pendingQ.current = 0;
         loadedMap.current = undefined;
-        setPlayQ(0);
+        playhead.set(0);
         setScore(s);
       } catch (e) {
         setError((e as Error).message);
@@ -460,7 +460,7 @@ export default function App() {
         setPicking(undefined);
         return;
       }
-      const span = nearestSpan(score.index.spans.get(id), playQRef.current);
+      const span = nearestSpan(score.index.spans.get(id), playhead.get());
       if (double && span) return seekTo(span.qOn, true);
       const extend = (shift || extending) && selection.kind === 'notes';
       setExtending(false);
@@ -577,7 +577,7 @@ export default function App() {
       e.preventDefault();
       if (pickField) return;
       const from = selection.kind === 'notes' ? selection.focusId : undefined;
-      const to = from ? stepNote(noteOrder, from, arrow) : noteAtOrAfter(noteOrder, playQRef.current);
+      const to = from ? stepNote(noteOrder, from, arrow) : noteAtOrAfter(noteOrder, playhead.get());
       if (to) onNoteClick(to.id, { shift: e.shiftKey && !!from, double: false });
       return;
     }
@@ -631,7 +631,13 @@ export default function App() {
 
   // ---- Render ----------------------------------------------------------------
 
-  const position = score && map ? `${measureLabel(score, playQ)} · ${formatTime(map.T(playQ))} / ${formatTime(map.duration)}` : '';
+  /** "m. 12 · 0:42.1 / 2:06.8" at a score position. */
+  const positionAt = useCallback(
+    (q: number) => (score && map ? `${measureLabel(score, q)} · ${formatTime(map.T(q))} / ${formatTime(map.duration)}` : ''),
+    [score, map],
+  );
+  /** The tempo at a score position, and how far the phrasing moves it, as "112|-15". */
+  const tempoAt = useCallback((q: number) => (map ? `${Math.round(map.bpmAt(q))}|${Math.round((map.ratioAt(q) - 1) * 100)}` : ''), [map]);
   const loopLabel =
     score && loop ? `m. ${measureLabel(score, loop.q0, false)}–${measureLabel(score, loop.q1 - 1e-6, false)}` : undefined;
 
@@ -675,7 +681,7 @@ export default function App() {
             <ScoreView
               score={score}
               pages={pages ?? score.pages}
-              playQ={playQ}
+              playhead={playhead}
               playing={playing}
               selectedIds={selectedIds}
               rangeIds={rangeIds}
@@ -691,7 +697,7 @@ export default function App() {
               gestures={doc.gestures}
               spans={spansById}
               rampInfo={rampInfo}
-              playQ={playQ}
+              playhead={playhead}
               breathResults={map.breaths}
               unusedBreathMarks={unusedBreathMarks.length}
               onImportBreathMarks={importBreathMarks}
@@ -727,9 +733,9 @@ export default function App() {
             <PlayerBar
               compact={compact}
               playing={playing}
-              position={position}
-              bpm={map?.bpmAt(playQ)}
-              bpmChange={map ? Math.round((map.ratioAt(playQ) - 1) * 100) : undefined}
+              playhead={playhead}
+              positionAt={positionAt}
+              tempoAt={tempoAt}
               status={status ?? soundStatus}
               expressive={expressive}
               dynamics={dynamicsOn}
@@ -752,7 +758,7 @@ export default function App() {
               index={score.index}
               timing={allTiming}
               selectedId={selection.kind === 'gesture' ? selection.id : undefined}
-              playQ={playQ}
+              playhead={playhead}
               loop={loop}
               onSeek={(q) => seekTo(q)}
               onSelect={(id) => setSelection({ kind: 'gesture', id })}

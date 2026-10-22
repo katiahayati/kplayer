@@ -40,7 +40,8 @@ export const VEROVIO_OPTIONS = {
   adjustPageHeight: true,
   breaks: 'auto',
   pageWidth: 2200,
-  pageHeight: 60000,
+  // About a screenful of systems per page: off-screen pages then cost nothing to draw (see .svg-pages .page).
+  pageHeight: 2000,
   pageMarginTop: 60,
   pageMarginBottom: 60,
   scale: 40,
