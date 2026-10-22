@@ -25,7 +25,7 @@ const SOUND_BANKS: SoundBankSource[] = [
   { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/SalamanderGrandPiano.sf3`, optional: true },
   { id: 'general', url: `${import.meta.env.BASE_URL}soundfonts/MuseScore_General.sf3` },
 ];
-const DEMO_URL = `${import.meta.env.BASE_URL}demo/song.musicxml`;
+const DEMO_URL = `${import.meta.env.BASE_URL}demo/apollo-learning.kplayer`;
 const PIECE_KIND: FileKind = { description: 'kplayer piece', mime: 'application/json', extension: PIECE_EXTENSION };
 const JSON_KIND: FileKind = { description: 'kplayer phrasing and dynamics', mime: 'application/json', extension: '.json' };
 const MIDI_KIND: FileKind = { description: 'MIDI file', mime: 'audio/midi', extension: '.mid' };
@@ -323,7 +323,7 @@ export default function App() {
 
   const openDemo = async () => {
     const res = await fetch(DEMO_URL);
-    await openFile(new File([await res.blob()], 'demo.musicxml'));
+    await openFile(new File([await res.blob()], 'apollo-learning.kplayer'));
   };
 
   useEffect(() => {
