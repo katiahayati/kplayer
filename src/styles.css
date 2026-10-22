@@ -1,3 +1,8 @@
+/*
+ * Paper and ink. The chrome shares the score paper's warmth, so the page reads as paper on a desk; colour is
+ * kept for meaning: terracotta for playing and the one primary action (Play), blue for what's selected,
+ * ochre for a passage, and one colour per kind of breath or tempo change, always next to its name.
+ */
 :root {
   --bg: #ece9e3;
   --panel: #ffffff;
@@ -6,13 +11,23 @@
   --line: #e6e2da;
   --line-strong: #d3cdc2;
   --text: #24221e;
-  --muted: #78726a;
+  --muted: #6c675f;
   --accent: #b4442e;
   --accent-hover: #9e3824;
+  /* Text and icons on the accent. */
+  --on-accent: #ffffff;
   --on: #2f2c27;
+  /* A control that's off still shows its edge (3:1 against the panel). */
+  --off: #949088;
   --select: #2f6fd0;
+  /* Text in the selection colour, on its tint. */
+  --select-ink: #2b66bf;
   --range: #c98a12;
   --paper: #fffdf8;
+  /* Notes marked on the score: the paper stays light in both themes, so these do too. */
+  --ink-playing: #b4442e;
+  --ink-selected: #2c68c4;
+  --ink-range: #a06d0d;
   --ink: #1d1b18;
   --breath: #1f8a7a;
   --slower: #3d7cc9;
@@ -20,9 +35,14 @@
   --broaden: #7a5cc4;
   --push: #c4406e;
   --atempo: #6b7d3a;
+  /* The slower / faster percentages as text, on their tints. */
+  --slower-ink: #346bad;
+  --faster-ink: #a85026;
   --warn: #a5590b;
   --shadow-1: 0 1px 2px rgb(40 30 20 / 0.06), 0 1px 1px rgb(40 30 20 / 0.04);
   --shadow-2: 0 2px 6px rgb(40 30 20 / 0.08), 0 10px 30px rgb(40 30 20 / 0.12);
+  --shadow-paper: 0 1px 2px rgb(40 30 20 / 0.08), 0 4px 16px rgb(40 30 20 / 0.08);
+  --shadow-dock: 0 -2px 10px rgb(40 30 20 / 0.04);
   --radius: 10px;
   color-scheme: light;
 }
@@ -39,8 +59,11 @@
     --muted: #a39d94;
     --accent: #e0694d;
     --accent-hover: #ef7a5e;
+    --on-accent: #1c120f;
     --on: #ece8e1;
+    --off: #706e69;
     --select: #6ea0f0;
+    --select-ink: #6ea0f0;
     --range: #e6b04a;
     --paper: #f3efe6;
     --breath: #46c2ae;
@@ -49,9 +72,13 @@
     --broaden: #a68cf0;
     --push: #f07aa2;
     --atempo: #a3b86a;
+    --slower-ink: #6ea0f0;
+    --faster-ink: #f08c5a;
     --warn: #f0a24a;
     --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
     --shadow-2: 0 4px 12px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+    --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.3);
+    --shadow-dock: 0 -2px 10px rgb(0 0 0 / 0.25);
     color-scheme: dark;
   }
 }
@@ -67,8 +94,11 @@
   --muted: #a39d94;
   --accent: #e0694d;
   --accent-hover: #ef7a5e;
+  --on-accent: #1c120f;
   --on: #ece8e1;
+  --off: #706e69;
   --select: #6ea0f0;
+  --select-ink: #6ea0f0;
   --range: #e6b04a;
   --paper: #f3efe6;
   --breath: #46c2ae;
@@ -77,9 +107,13 @@
   --broaden: #a68cf0;
   --push: #f07aa2;
   --atempo: #a3b86a;
+  --slower-ink: #6ea0f0;
+  --faster-ink: #f08c5a;
   --warn: #f0a24a;
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-2: 0 4px 12px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.35);
+  --shadow-paper: 0 1px 2px rgb(0 0 0 / 0.4), 0 4px 16px rgb(0 0 0 / 0.3);
+  --shadow-dock: 0 -2px 10px rgb(0 0 0 / 0.25);
   color-scheme: dark;
 }
 
@@ -161,7 +195,7 @@ button.icon:hover:not(:disabled) {
 button.active {
   background: color-mix(in srgb, var(--select) 14%, var(--panel));
   border-color: var(--select);
-  color: var(--select);
+  color: var(--select-ink);
 }
 
 button.danger:hover:not(:disabled) {
@@ -174,7 +208,7 @@ button.danger:hover:not(:disabled) {
 button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -238,7 +272,7 @@ input.switch {
   height: 18px;
   margin: 0;
   border-radius: 999px;
-  background: var(--line-strong);
+  background: var(--off);
   position: relative;
   cursor: pointer;
   transition: background 0.15s;
@@ -266,7 +300,7 @@ input.switch:checked::before {
 }
 
 input.switch:indeterminate {
-  background: color-mix(in srgb, var(--on) 45%, var(--line-strong));
+  background: color-mix(in srgb, var(--on) 50%, var(--off));
 }
 
 input.switch:indeterminate::before {
@@ -575,7 +609,7 @@ input[type='range']:disabled {
   height: 26px;
   border-radius: 7px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: 700 18px/1 Georgia, 'Times New Roman', serif;
   padding-bottom: 2px;
 }
@@ -640,7 +674,7 @@ input[type='range']:disabled {
   height: auto;
   background: var(--paper);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgb(40 30 20 / 0.08), 0 4px 16px rgb(40 30 20 / 0.08);
+  box-shadow: var(--shadow-paper);
   margin-bottom: 20px;
 }
 
@@ -659,18 +693,18 @@ input[type='range']:disabled {
 }
 
 .svg-pages g.in-range {
-  fill: var(--range);
-  color: var(--range);
+  fill: var(--ink-range);
+  color: var(--ink-range);
 }
 
 .svg-pages g.selected {
-  fill: var(--select);
-  color: var(--select);
+  fill: var(--ink-selected);
+  color: var(--ink-selected);
 }
 
 .svg-pages g.playing {
-  fill: var(--accent);
-  color: var(--accent);
+  fill: var(--ink-playing);
+  color: var(--ink-playing);
 }
 
 .score-pages.picking,
@@ -756,7 +790,7 @@ input[type='range']:disabled {
   padding: 1px 6px;
   border-radius: 999px;
   background: var(--panel-3);
-  color: var(--muted);
+  color: var(--text);
 }
 
 .tabs .dot {
@@ -1065,6 +1099,10 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   background: color-mix(in srgb, var(--select) 12%, transparent);
 }
 
+.list li button.active {
+  color: var(--select-ink);
+}
+
 .list li button.off .row-text,
 .list li button.off .swatch {
   opacity: 0.45;
@@ -1090,12 +1128,12 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
 
 .list .tag.now {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .list .tag.holding {
   border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-  color: var(--accent);
+  color: var(--ink-playing);
 }
 
 .list li.playhead-marker {
@@ -1246,7 +1284,7 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   background: var(--panel);
   border-top: 1px solid var(--line);
   padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  box-shadow: 0 -2px 10px rgb(40 30 20 / 0.04);
+  box-shadow: var(--shadow-dock);
 }
 
 .playerbar {
@@ -1271,7 +1309,7 @@ button.play {
   border-radius: 999px;
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.1), 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
 }
@@ -1312,12 +1350,12 @@ button.play:hover:not(:disabled) {
 }
 
 .playerbar .bpm .change.slower {
-  color: var(--slower);
+  color: var(--slower-ink);
   background: color-mix(in srgb, var(--slower) 12%, transparent);
 }
 
 .playerbar .bpm .change.faster {
-  color: var(--faster);
+  color: var(--faster-ink);
   background: color-mix(in srgb, var(--faster) 12%, transparent);
 }
 
