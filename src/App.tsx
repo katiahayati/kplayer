@@ -656,9 +656,6 @@ export default function App() {
         open={!!score}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
-        playing={playing}
-        onPlayPause={togglePlay}
-        onRewind={() => seekTo(0)}
         onOpen={openFile}
         onImport={importJson}
         onSavePiece={savePiece}
@@ -667,6 +664,31 @@ export default function App() {
         onUndo={history.undo}
         onRedo={history.redo}
       />
+      {score && map && (
+        <PlayerBar
+          compact={compact}
+          playing={playing}
+          playhead={playhead}
+          positionAt={positionAt}
+          tempoAt={tempoAt}
+          status={status ?? soundStatus}
+          expressive={expressive}
+          dynamics={dynamicsOn}
+          hall={hall}
+          tempoFactor={doc.tempoFactor}
+          parts={score.events.parts}
+          partSettings={doc.parts}
+          loopLabel={loopLabel}
+          onPlayPause={togglePlay}
+          onRewind={() => seekTo(0)}
+          onExpressive={setExpressive}
+          onDynamics={setDynamicsOn}
+          onHall={setHall}
+          onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
+          onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
+          onStopLoop={() => setLoopGestureId(undefined)}
+        />
+      )}
       {error && (
         <div className="error" role="alert">
           <span>{error}</span>
@@ -733,26 +755,6 @@ export default function App() {
             </Inspector>
           </main>
           <footer className="dock">
-            <PlayerBar
-              compact={compact}
-              playhead={playhead}
-              positionAt={positionAt}
-              tempoAt={tempoAt}
-              status={status ?? soundStatus}
-              expressive={expressive}
-              dynamics={dynamicsOn}
-              hall={hall}
-              tempoFactor={doc.tempoFactor}
-              parts={score.events.parts}
-              partSettings={doc.parts}
-              loopLabel={loopLabel}
-              onExpressive={setExpressive}
-              onDynamics={setDynamicsOn}
-              onHall={setHall}
-              onTempoFactor={(f) => setDoc({ ...doc, tempoFactor: f }, 'tempoFactor')}
-              onPart={(i, s: PartSetting) => setDoc({ ...doc, parts: { ...doc.parts, [i]: s } }, `part:${i}`)}
-              onStopLoop={() => setLoopGestureId(undefined)}
-            />
             <TempoLane
               map={map}
               index={score.index}

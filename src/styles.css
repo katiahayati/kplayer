@@ -551,7 +551,6 @@ input[type='range']:disabled {
 }
 
 .error {
-  grid-row: 2;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -581,7 +580,7 @@ input[type='range']:disabled {
 .app {
   height: 100%;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto auto 1fr auto;
   /* Never wider than the window: the tempo lane sizes itself to what it's given. */
   grid-template-columns: minmax(0, 1fr);
 }
@@ -591,13 +590,21 @@ input[type='range']:disabled {
   grid-row: 1;
 }
 
-.workspace,
-.empty {
+.playerbar {
+  grid-row: 2;
+}
+
+.error {
   grid-row: 3;
 }
 
-.dock {
+.workspace,
+.empty {
   grid-row: 4;
+}
+
+.dock {
+  grid-row: 5;
 }
 
 /* ---- Top bar ---- */
@@ -655,15 +662,6 @@ input[type='range']:disabled {
 /* The controls keep their size; the title gives way (and ends in "…"). */
 .topbar > button,
 .topbar > .popover {
-  flex: none;
-}
-
-/* Back to the beginning and Play, at the right end: the one primary action. */
-.topbar .transport {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: 8px;
   flex: none;
 }
 
@@ -1301,24 +1299,27 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   border-top: 1px solid var(--line);
 }
 
-/* ---- Dock: the player bar and the tempo lane ---- */
-
-.dock {
-  background: var(--panel);
-  border-top: 1px solid var(--line);
-  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  box-shadow: var(--shadow-dock);
-  /* Its readouts change many times a second while playing: a layer of its own keeps that from repainting the score. */
-  will-change: transform;
-}
+/* ---- The player bar, under the top bar ---- */
 
 .playerbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 10px 16px;
-  padding: 8px 16px;
+  padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left));
+  background: var(--panel);
   border-bottom: 1px solid var(--line);
+  /* Its readouts change many times a second while playing: a layer of its own keeps that from repainting the score. */
+  will-change: transform;
+  /* Above the score, so its menus (the mixer, the sound settings) open over it. */
+  position: relative;
+  z-index: 20;
+}
+
+.transport-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 button.play {
@@ -1511,7 +1512,16 @@ button.play:hover:not(:disabled) {
   display: block;
 }
 
-/* ---- Tempo lane ---- */
+/* ---- Dock: the tempo lane, at the bottom ---- */
+
+.dock {
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  box-shadow: var(--shadow-dock);
+  /* The playhead and the readout move while playing: a layer of their own keeps that from repainting the score. */
+  will-change: transform;
+}
 
 .tempo-lane {
   position: relative;
@@ -1756,6 +1766,16 @@ button.play:hover:not(:disabled) {
 }
 
 @media (max-width: 560px) {
+  .brand {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .piece-title {
+    border-left: none;
+    padding-left: 4px;
+  }
+
   .playerbar .position {
     min-width: 0;
   }
@@ -1777,31 +1797,6 @@ button.play:hover:not(:disabled) {
     --text-body: 1rem;
     --text-secondary: 0.9375rem;
     --text-label: 0.8125rem;
-  }
-
-  /* The top bar keeps room for the title: no logo, and Play as a round button. */
-  .topbar {
-    gap: 4px;
-  }
-
-  .brand {
-    display: none;
-  }
-
-  .piece-title {
-    border-left: none;
-    padding-left: 6px;
-    margin-left: 0;
-  }
-
-  .topbar button.play {
-    min-width: 44px;
-    width: 44px;
-    padding: 0;
-  }
-
-  .topbar button.play span {
-    display: none;
   }
 
   .tempo-lane {
