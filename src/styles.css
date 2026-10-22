@@ -615,7 +615,7 @@ input[type='range']:disabled {
   gap: 8px;
   /* Clear of a phone's notch and rounded corners. */
   height: calc(52px + env(safe-area-inset-top));
-  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left));
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   min-width: 0;
@@ -655,8 +655,19 @@ input[type='range']:disabled {
   border-left: 1px solid var(--line);
 }
 
+/* The menu: a hamburger in the corner, drawn like the other icon buttons. */
 .file-menu > .popover-button {
-  font-weight: 500;
+  width: 36px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+}
+
+.file-menu > .popover-button:hover:not(:disabled),
+.file-menu > .popover-button.open {
+  background: var(--panel-3);
+  border-color: transparent;
 }
 
 /* The controls keep their size; the title gives way (and ends in "…"). */
@@ -1849,7 +1860,8 @@ button.play:hover:not(:disabled) {
     min-height: 44px;
   }
 
-  button.icon {
+  button.icon,
+  .file-menu > .popover-button {
     width: 44px;
     min-height: 44px;
   }

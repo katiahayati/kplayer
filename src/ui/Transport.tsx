@@ -1,8 +1,8 @@
-// The top bar (the File menu, the piece, undo) and the player bar under it
-// (play, where you are, and how it sounds).
+// The top bar (the menu, the piece, undo) and the player bar under it (play,
+// where you are, and how it sounds).
 
 import { useRef } from 'react';
-import { FileDown, FileJson, FolderOpen, Pause, Play, Redo2, Repeat, Save, SkipBack, SlidersHorizontal, Undo2, Upload, Volume2, VolumeX, X } from 'lucide-react';
+import { FileDown, FileJson, FolderOpen, Menu, Pause, Play, Redo2, Repeat, Save, SkipBack, SlidersHorizontal, Undo2, Upload, Volume2, VolumeX, X } from 'lucide-react';
 import type { ScorePart } from '../perf/render';
 import type { PartSetting } from '../perf/types';
 import { OPEN_ACCEPT } from '../storage/piece';
@@ -33,46 +33,44 @@ export function TopBar(p: TopBarProps) {
   };
   return (
     <header className="topbar">
+      <input ref={openRef} type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => pickFile(e, p.onOpen)} />
+      <input ref={importRef} type="file" accept=".json" hidden onChange={(e) => pickFile(e, p.onImport)} />
+      <Popover className="file-menu" align="left" ariaLabel="Menu" title="Open, save, import and export" button={<Menu size={20} />}>
+        {(close) => (
+          <div className="menu" role="menu">
+            <button role="menuitem" onClick={item(close, () => openRef.current?.click())} title="Open a score (MusicXML) or a kplayer piece">
+              <FolderOpen size={16} /> Open…
+            </button>
+            {p.open && (
+              <>
+                <button
+                  role="menuitem"
+                  onClick={item(close, p.onSavePiece)}
+                  title="One .kplayer file with the score and your phrasing and dynamics: open it to get everything back"
+                >
+                  <Save size={16} /> Save piece… <kbd>{MOD}S</kbd>
+                </button>
+                <hr />
+                <button role="menuitem" onClick={item(close, () => importRef.current?.click())} title="Phrasing and dynamics from a JSON file, for the open score">
+                  <Upload size={16} /> Import…
+                </button>
+                <button role="menuitem" onClick={item(close, p.onExportJson)} title="Your phrasing and dynamics as a JSON file, without the score">
+                  <FileJson size={16} /> Export JSON
+                </button>
+                <button role="menuitem" onClick={item(close, p.onExportMidi)} title="The performance as a MIDI file, with its timing and dynamics">
+                  <FileDown size={16} /> Export MIDI
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </Popover>
       <span className="brand">
         <span className="logo" aria-hidden>
           k
         </span>
         kplayer
       </span>
-      <input ref={openRef} type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => pickFile(e, p.onOpen)} />
-      <input ref={importRef} type="file" accept=".json" hidden onChange={(e) => pickFile(e, p.onImport)} />
-      {p.open ? (
-        <Popover className="file-menu" align="left" ariaLabel="File menu" button={<>File</>}>
-          {(close) => (
-            <div className="menu" role="menu">
-              <button role="menuitem" onClick={item(close, () => openRef.current?.click())}>
-                <FolderOpen size={16} /> Open…
-              </button>
-              <button
-                role="menuitem"
-                onClick={item(close, p.onSavePiece)}
-                title="One .kplayer file with the score and your phrasing and dynamics: open it to get everything back"
-              >
-                <Save size={16} /> Save piece… <kbd>{MOD}S</kbd>
-              </button>
-              <hr />
-              <button role="menuitem" onClick={item(close, () => importRef.current?.click())} title="Phrasing and dynamics from a JSON file, for the open score">
-                <Upload size={16} /> Import…
-              </button>
-              <button role="menuitem" onClick={item(close, p.onExportJson)} title="Your phrasing and dynamics as a JSON file, without the score">
-                <FileJson size={16} /> Export JSON
-              </button>
-              <button role="menuitem" onClick={item(close, p.onExportMidi)} title="The performance as a MIDI file, with its timing and dynamics">
-                <FileDown size={16} /> Export MIDI
-              </button>
-            </div>
-          )}
-        </Popover>
-      ) : (
-        <button onClick={() => openRef.current?.click()} title="Open a score (MusicXML) or a kplayer piece">
-          <FolderOpen size={16} /> Open…
-        </button>
-      )}
       {p.title && <span className="piece-title">{p.title}</span>}
       <span className="spacer" />
       {p.open && (
