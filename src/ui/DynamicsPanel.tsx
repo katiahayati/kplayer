@@ -37,7 +37,7 @@ export function DynamicsPanel(p: Props) {
       <div className="list-head">
         <h3>Voicing{p.on ? '' : ' (dynamics off)'}</h3>
         <button className="small" onClick={() => input.current?.click()} title="Take the voicing from a performance or voicing file, keeping your phrasing">
-          <Upload size={14} /> Import voicing…
+          <Upload size={14} /> {voices.length ? 'Import voicing…' : 'Import a kespressivo voicing…'}
         </button>
         <input
           ref={input}
@@ -57,7 +57,13 @@ export function DynamicsPanel(p: Props) {
         </p>
       )}
       {!voices.length ? (
-        <p className="note">The score's written dynamics play. A voicing brings some notes forward and keeps others back.</p>
+        <p className="note">
+          The score's written dynamics play. A voicing brings some notes forward and keeps others back:{' '}
+          <a href={KESPRESSIVO_URL} target="_blank" rel="noreferrer">
+            kespressivo
+          </a>{' '}
+          writes one from the score, and can learn a recording's dynamics.
+        </p>
       ) : (
         <ul className="voices">
           {voices.map((v) => (
@@ -128,6 +134,9 @@ export function DynamicsPanel(p: Props) {
     </section>
   );
 }
+
+/** kplayer's companion, which writes voicings and learns performances from recordings. */
+const KESPRESSIVO_URL = 'https://github.com/katiahayati/kespressivo';
 
 const PEDAL_MODES = { harmony: 'Changed with the harmony', beat: 'Changed every beat', bar: 'Changed every bar', off: 'Off' } as const;
 
