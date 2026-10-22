@@ -1,5 +1,5 @@
-// The top bar (the piece, undo, the File menu) and the player bar above the
-// tempo lane (play, where you are, and how it sounds).
+// The top bar (the File menu, the piece, undo, and play) and the player bar
+// above the tempo lane (where you are, and how it sounds).
 
 import { useRef } from 'react';
 import { FileDown, FileJson, FolderOpen, Pause, Play, Redo2, Repeat, Save, SkipBack, SlidersHorizontal, Undo2, Upload, Volume2, VolumeX, X } from 'lucide-react';
@@ -15,6 +15,9 @@ interface TopBarProps {
   open: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  playing: boolean;
+  onPlayPause: () => void;
+  onRewind: () => void;
   onOpen: (file: File) => void;
   onImport: (file: File) => void;
   onSavePiece: () => void;
@@ -39,11 +42,43 @@ export function TopBar(p: TopBarProps) {
         </span>
         kplayer
       </span>
-      {p.title && <span className="piece-title">{p.title}</span>}
-      <span className="spacer" />
       <input ref={openRef} type="file" accept={OPEN_ACCEPT} hidden onChange={(e) => pickFile(e, p.onOpen)} />
       <input ref={importRef} type="file" accept=".json" hidden onChange={(e) => pickFile(e, p.onImport)} />
       {p.open ? (
+        <Popover className="file-menu" align="left" ariaLabel="File menu" button={<>File</>}>
+          {(close) => (
+            <div className="menu" role="menu">
+              <button role="menuitem" onClick={item(close, () => openRef.current?.click())}>
+                <FolderOpen size={16} /> Open…
+              </button>
+              <button
+                role="menuitem"
+                onClick={item(close, p.onSavePiece)}
+                title="One .kplayer file with the score and your phrasing and dynamics: open it to get everything back"
+              >
+                <Save size={16} /> Save piece… <kbd>{MOD}S</kbd>
+              </button>
+              <hr />
+              <button role="menuitem" onClick={item(close, () => importRef.current?.click())} title="Phrasing and dynamics from a JSON file, for the open score">
+                <Upload size={16} /> Import…
+              </button>
+              <button role="menuitem" onClick={item(close, p.onExportJson)} title="Your phrasing and dynamics as a JSON file, without the score">
+                <FileJson size={16} /> Export JSON
+              </button>
+              <button role="menuitem" onClick={item(close, p.onExportMidi)} title="The performance as a MIDI file, with its timing and dynamics">
+                <FileDown size={16} /> Export MIDI
+              </button>
+            </div>
+          )}
+        </Popover>
+      ) : (
+        <button onClick={() => openRef.current?.click()} title="Open a score (MusicXML) or a kplayer piece">
+          <FolderOpen size={16} /> Open…
+        </button>
+      )}
+      {p.title && <span className="piece-title">{p.title}</span>}
+      <span className="spacer" />
+      {p.open && (
         <>
           <button className="icon" onClick={p.onUndo} disabled={!p.canUndo} title={`Undo (${MOD}Z)`} aria-label="Undo">
             <Undo2 size={18} />
@@ -51,37 +86,16 @@ export function TopBar(p: TopBarProps) {
           <button className="icon" onClick={p.onRedo} disabled={!p.canRedo} title={`Redo (${MOD}Shift+Z)`} aria-label="Redo">
             <Redo2 size={18} />
           </button>
-          <Popover className="file-menu" align="right" ariaLabel="File menu" button={<>File</>}>
-            {(close) => (
-              <div className="menu" role="menu">
-                <button role="menuitem" onClick={item(close, () => openRef.current?.click())}>
-                  <FolderOpen size={16} /> Open…
-                </button>
-                <button
-                  role="menuitem"
-                  onClick={item(close, p.onSavePiece)}
-                  title="One .kplayer file with the score and your phrasing and dynamics: open it to get everything back"
-                >
-                  <Save size={16} /> Save piece… <kbd>{MOD}S</kbd>
-                </button>
-                <hr />
-                <button role="menuitem" onClick={item(close, () => importRef.current?.click())} title="Phrasing and dynamics from a JSON file, for the open score">
-                  <Upload size={16} /> Import…
-                </button>
-                <button role="menuitem" onClick={item(close, p.onExportJson)} title="Your phrasing and dynamics as a JSON file, without the score">
-                  <FileJson size={16} /> Export JSON
-                </button>
-                <button role="menuitem" onClick={item(close, p.onExportMidi)} title="The performance as a MIDI file, with its timing and dynamics">
-                  <FileDown size={16} /> Export MIDI
-                </button>
-              </div>
-            )}
-          </Popover>
+          <span className="transport">
+            <button className="icon" onClick={p.onRewind} title="Back to the beginning (Home)" aria-label="Back to the beginning">
+              <SkipBack size={18} />
+            </button>
+            <button className="play" onClick={p.onPlayPause} title="Play / pause (Space)" aria-label={p.playing ? 'Pause' : 'Play'}>
+              {p.playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
+              <span>{p.playing ? 'Pause' : 'Play'}</span>
+            </button>
+          </span>
         </>
-      ) : (
-        <button onClick={() => openRef.current?.click()} title="Open a score (MusicXML) or a kplayer piece">
-          <FolderOpen size={16} /> Open…
-        </button>
       )}
     </header>
   );
@@ -90,7 +104,6 @@ export function TopBar(p: TopBarProps) {
 interface PlayerBarProps {
   /** A phone: the sound settings fold into one menu. */
   compact?: boolean;
-  playing: boolean;
   playhead: Playhead;
   /** "m. 12 · 0:42.1 / 2:06.8" at a score position. */
   positionAt: (q: number) => string;
@@ -105,8 +118,6 @@ interface PlayerBarProps {
   parts: ScorePart[];
   partSettings: Record<string, PartSetting>;
   loopLabel?: string;
-  onPlayPause: () => void;
-  onRewind: () => void;
   onExpressive: (on: boolean) => void;
   onDynamics: (on: boolean) => void;
   onHall: (h: { on: boolean; level: number }) => void;
@@ -177,15 +188,6 @@ export function PlayerBar(p: PlayerBarProps) {
   );
   return (
     <div className={`playerbar${p.compact ? ' compact' : ''}`}>
-      <div className="transport-buttons">
-        <button className="icon" onClick={p.onRewind} title="Back to the beginning (Home)" aria-label="Back to the beginning">
-          <SkipBack size={18} />
-        </button>
-        <button className="play" onClick={p.onPlayPause} title="Play / pause (Space)">
-          {p.playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
-          <span>{p.playing ? 'Pause' : 'Play'}</span>
-        </button>
-      </div>
       {/* On a phone there's room for one: while the sounds load, that's what to know. */}
       {!(p.compact && p.status) && <Position playhead={p.playhead} positionAt={p.positionAt} />}
       <Tempo playhead={p.playhead} tempoAt={p.tempoAt} />

@@ -656,6 +656,9 @@ export default function App() {
         open={!!score}
         canUndo={history.canUndo}
         canRedo={history.canRedo}
+        playing={playing}
+        onPlayPause={togglePlay}
+        onRewind={() => seekTo(0)}
         onOpen={openFile}
         onImport={importJson}
         onSavePiece={savePiece}
@@ -732,7 +735,6 @@ export default function App() {
           <footer className="dock">
             <PlayerBar
               compact={compact}
-              playing={playing}
               playhead={playhead}
               positionAt={positionAt}
               tempoAt={tempoAt}
@@ -744,8 +746,6 @@ export default function App() {
               parts={score.events.parts}
               partSettings={doc.parts}
               loopLabel={loopLabel}
-              onPlayPause={togglePlay}
-              onRewind={() => seekTo(0)}
               onExpressive={setExpressive}
               onDynamics={setDynamicsOn}
               onHall={setHall}
