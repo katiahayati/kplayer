@@ -758,6 +758,10 @@ export default function App() {
                 onChange={(dynamics, key) => setDoc({ ...doc, dynamics }, key)}
                 onFocus={setFocusVoice}
                 onImport={importVoicing}
+                onClear={() => {
+                  setDoc({ ...doc, dynamics: undefined });
+                  setFocusVoice(undefined);
+                }}
               />
             </Inspector>
           </main>

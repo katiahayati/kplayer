@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { Upload } from 'lucide-react';
 import type { DynamicsDoc, NoteSelector, PulseRule, VoiceRule } from '../perf/types';
-import { Slider, Switch } from './controls';
+import { MOD, Slider, Switch } from './controls';
 import { anchorLabel } from './Inspector';
 
 interface Props {
@@ -20,6 +20,8 @@ interface Props {
   onChange: (d: DynamicsDoc, key: string) => void;
   onFocus: (id?: string) => void;
   onImport: (file: File) => void;
+  /** Removes the voicing (undoable), so the score's written dynamics play. */
+  onClear: () => void;
 }
 
 /** The voicing: strands of the texture, each with its own level against the written dynamics. */
@@ -33,6 +35,14 @@ export function DynamicsPanel(p: Props) {
   const setPulse = (id: string, patch: Partial<PulseRule>, field: string) =>
     p.onChange({ ...d!, pulse: pulses.map((r) => (r.id === id ? { ...r, ...patch } : r)) }, `pulse:${id}:${field}`);
   const noteVoice = p.note?.voice ? voices.find((v) => v.id === p.note!.voice) : undefined;
+  // What clearing would remove, for asking first.
+  const count = (n: number, what: string) => `${n} ${what}${n === 1 ? '' : 's'}`;
+  const contents = [
+    voices.length && count(voices.length, 'voice'),
+    pulses.length && count(pulses.length, 'pulse'),
+    d?.pedal?.length && 'the pedal',
+    (d?.marks?.length || d?.hairpins?.length) && 'its own dynamics',
+  ].filter(Boolean);
 
   const db = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v)} dB`;
   return (
@@ -45,9 +55,22 @@ export function DynamicsPanel(p: Props) {
       <section className="card dynamics">
         <div className="list-head">
           <h3>Voicing{p.on ? '' : ' (dynamics off)'}</h3>
-          <button className="small" onClick={() => input.current?.click()} title="Take the voicing from a performance or voicing file, keeping your phrasing">
-            <Upload size={14} /> {voices.length ? 'Import voicing…' : 'Import a kespressivo voicing…'}
-          </button>
+          <span className="actions">
+            <button className="small" onClick={() => input.current?.click()} title="Take the voicing from a performance or voicing file, keeping your phrasing">
+              <Upload size={14} /> {voices.length ? 'Import voicing…' : 'Import a kespressivo voicing…'}
+            </button>
+            {contents.length > 0 && (
+              <button
+                className="danger small"
+                title={`Remove the voicing, so the score's written dynamics play (${MOD}Z undoes it)`}
+                onClick={() => {
+                  if (confirm(`Remove the voicing (${contents.join(', ')})? The score's written dynamics play again. ${MOD}Z undoes it.`)) p.onClear();
+                }}
+              >
+                Clear voicing
+              </button>
+            )}
+          </span>
           <input
             ref={input}
             type="file"

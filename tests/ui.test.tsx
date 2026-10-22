@@ -270,6 +270,14 @@ describe('app', () => {
     await slide(document.querySelector<HTMLInputElement>('.volume input[type=range]')!, 6);
     expect(volume()).toBe('+6 dB');
     expect(text()).toContain(`velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
+    // Clear voicing goes back to the written dynamics, keeping the volume; undo brings the voicing back.
+    await click(button('Clear voicing'));
+    expect(document.querySelector('.dynamics .voices')).toBeNull();
+    expect(text()).toContain('Selected note: no voice, velocity 72');
+    expect(button('Clear voicing')).toBeUndefined();
+    expect(volume()).toBe('+6 dB');
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
+    expect(text()).toContain(`Selected note: Right hand, velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
 
     // Importing phrasing alone (breaths, no dynamics) keeps the voicing.
     const phrasing = { version: 2, tempoFactor: 1, parts: {}, gestures: [{ id: 'b9', type: 'breath', at: { measureIndex: 1, offsetQ: 2 }, extraMs: 300, beforeBeats: 1, afterBeats: 0.5 }] };

@@ -1080,6 +1080,13 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   padding: 0;
 }
 
+.list-head .actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .list-groups {
   display: flex;
   flex-wrap: wrap;

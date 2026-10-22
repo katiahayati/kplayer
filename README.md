@@ -62,7 +62,8 @@ passage, and the sound settings are in the menu next to **Play**.
   others. Sustain pedal can change with the harmony, compared beat by beat (or by a longer beat, such as the dotted
   half of 6/4). Two voices sharing a notehead play as one note, as a pianist strikes the key once. **Import
   voicing…** takes the dynamics from a file (such as one [kespressivo](https://github.com/katiahayati/kespressivo)
-  wrote) without touching your tempo phrasing. **Volume** turns the whole piece up (by up to 18 dB) or down, without
+  wrote) without touching your tempo phrasing, and **Clear voicing** removes it, so the score's written dynamics
+  play again. **Volume** turns the whole piece up (by up to 18 dB) or down, without
   changing how it's played; a limiter keeps the loudest chords from distorting.
 - Your work autosaves in the browser for each score. **Save piece…** in the **☰** menu writes it all to one
   `.kplayer` file, with the score inside: phrasing, voicing and dynamics, volume, tempo and part mix. **Open…** it,
