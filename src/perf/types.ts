@@ -213,6 +213,8 @@ export interface PerformanceDoc {
   parts: Record<string, PartSetting>;
   gestures: Gesture[];
   dynamics?: DynamicsDoc;
+  /** Turns the whole piece up or down, in dB, without changing how it's played (absent: 0). */
+  volumeDb?: number;
 }
 
 export function emptyDoc(): PerformanceDoc {

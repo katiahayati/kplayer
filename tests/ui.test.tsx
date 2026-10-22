@@ -264,6 +264,12 @@ describe('app', () => {
     expect(text()).toContain(`Selected note: Right hand, velocity ${Math.round(72 * 10 ** (-12 / 40))}`);
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true })));
     expect(text()).toContain(`velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
+    // The whole piece louder: the volume, not the velocities.
+    const volume = () => document.querySelector('.volume output')?.textContent;
+    expect(volume()).toBe('0 dB');
+    await slide(document.querySelector<HTMLInputElement>('.volume input[type=range]')!, 6);
+    expect(volume()).toBe('+6 dB');
+    expect(text()).toContain(`velocity ${Math.round(72 * 10 ** (-6 / 40))}`);
 
     // Importing phrasing alone (breaths, no dynamics) keeps the voicing.
     const phrasing = { version: 2, tempoFactor: 1, parts: {}, gestures: [{ id: 'b9', type: 'breath', at: { measureIndex: 1, offsetQ: 2 }, extraMs: 300, beforeBeats: 1, afterBeats: 0.5 }] };
@@ -274,6 +280,7 @@ describe('app', () => {
     await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
     await tab('dynamics');
     expect(text()).toContain('Right hand');
+    expect(volume()).toBe('+6 dB'); // and the volume
     await tab('phrasing');
 
     // Save piece… writes one file with the score and all of this. Without a Save dialog (Firefox, phones)
@@ -292,7 +299,7 @@ describe('app', () => {
       r.onload = () => done(r.result as string);
       r.readAsText(downloaded!);
     });
-    expect(JSON.parse(pieceText)).toMatchObject({ kplayer: 'piece', score: { name: 'song.musicxml' } });
+    expect(JSON.parse(pieceText)).toMatchObject({ kplayer: 'piece', score: { name: 'song.musicxml' }, performance: { volumeDb: 6 } });
     const written: Blob[] = [];
     const picked: unknown[] = [];
     (window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = async (o: unknown) => {
@@ -310,6 +317,7 @@ describe('app', () => {
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     expect(document.querySelector('.list')).toBeNull();
     await tab('dynamics');
+    await slide(document.querySelector<HTMLInputElement>('.volume input[type=range]')!, 0);
     const voicingBox = [...document.querySelectorAll<HTMLInputElement>('.dynamics .voices input[type=checkbox]')][0];
     await click(voicingBox); // switch the voice off, to see it come back on
     expect(voicingBox.checked).toBe(false);
@@ -320,6 +328,7 @@ describe('app', () => {
     await vi.waitFor(() => expect([...document.querySelectorAll('.list li')].filter((li) => li.textContent?.includes('Breath')).length).toBe(1));
     await tab('dynamics');
     expect(document.querySelector<HTMLInputElement>('.dynamics .voices input[type=checkbox]')!.checked).toBe(true);
+    expect(volume()).toBe('+6 dB');
     expect(document.querySelector('.error')).toBeNull();
 
     // Opening a phrasing file on its own says what to do instead.

@@ -61,12 +61,14 @@ passage, and the sound settings are in the menu next to **Play**.
   play a few dB louder, optionally fading over the beat; pulses add up, so the downbeat can weigh more than the
   others. Sustain pedal can change with the harmony, compared beat by beat (or by a longer beat, such as the dotted
   half of 6/4). Two voices sharing a notehead play as one note, as a pianist strikes the key once. **Import
-  voicing…** takes the dynamics from a file without touching your tempo phrasing.
-- Your work autosaves in the browser for each score. **File ▸ Save piece…** writes it all to one `.kplayer` file, with the
-  score inside: phrasing, voicing and dynamics, tempo and part mix. **Open…** it, on any computer, to get everything
-  back (if this browser had its own version of that score, Ctrl+Z returns to it). **Export JSON** saves just your
-  phrasing and dynamics, to **Import…** onto the same score; **Export MIDI** writes the timed performance for use
-  elsewhere. In Chrome and Edge on a computer, saving opens the system's Save dialog, so you choose the folder and
+  voicing…** takes the dynamics from a file (such as one [kespressivo](https://github.com/katiahayati/kespressivo)
+  wrote) without touching your tempo phrasing. **Volume** turns the whole piece up (by up to 18 dB) or down, without
+  changing how it's played; a limiter keeps the loudest chords from distorting.
+- Your work autosaves in the browser for each score. **Save piece…** in the **☰** menu writes it all to one
+  `.kplayer` file, with the score inside: phrasing, voicing and dynamics, volume, tempo and part mix. **Open…** it,
+  on any computer, to get everything back (if this browser had its own version of that score, Ctrl+Z returns to it).
+  **Export JSON** saves just your phrasing and dynamics, to **Import…** onto the same score; **Export MIDI** writes
+  the timed performance for use elsewhere. In Chrome and Edge on a computer, saving opens the system's Save dialog, so you choose the folder and
   name and can replace an older copy; other browsers download the file.
 
 ## Deploying

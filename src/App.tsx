@@ -60,6 +60,8 @@ export default function App() {
   hallRef.current = hall;
   const history = useHistory<PerformanceDoc>(emptyDoc());
   const doc = history.value;
+  const volumeRef = useRef(0);
+  volumeRef.current = doc.volumeDb ?? 0;
   const [expressive, setExpressive] = useState(true);
   /** Play dynamics (written and your voicing), or every note at one level as Verovio gives them. */
   const [dynamicsOn, setDynamicsOn] = useState(true);
@@ -211,6 +213,7 @@ export default function App() {
         player.current = p;
         const h = hallRef.current;
         p.setHall(h.on ? h.level : 0);
+        p.setVolume(volumeRef.current);
       }
       return player.current;
     } catch (e) {
@@ -235,6 +238,8 @@ export default function App() {
     }
     player.current?.setHall(hall.on ? hall.level : 0);
   }, [hall]);
+
+  useEffect(() => player.current?.setVolume(doc.volumeDb ?? 0), [doc.volumeDb]);
 
   const togglePlay = useCallback(async () => {
     if (!score) return;
@@ -554,8 +559,8 @@ export default function App() {
       if (score && imported.score && imported.score.sha256 !== score.sha256) {
         if (!confirm(`This performance was made for "${imported.score.name}", which differs from the open score. Load it anyway?`)) return;
       }
-      // A file of phrasing alone keeps the voicing you have; one with its own dynamics brings them.
-      setDoc({ ...imported, dynamics: imported.dynamics ?? doc.dynamics, score: score ? { name: score.name, sha256: score.sha256 } : imported.score });
+      // A file of phrasing alone keeps the voicing (and volume) you have; one with its own brings them.
+      setDoc({ ...imported, dynamics: imported.dynamics ?? doc.dynamics, volumeDb: imported.volumeDb ?? doc.volumeDb, score: score ? { name: score.name, sha256: score.sha256 } : imported.score });
       setSelection({ kind: 'none' });
     } catch (e) {
       setError((e as Error).message);
@@ -746,6 +751,8 @@ export default function App() {
                 dynamics={doc.dynamics}
                 partNames={score.events.parts.map((p) => p.name)}
                 on={dynamicsOn}
+                volumeDb={doc.volumeDb ?? 0}
+                onVolume={(db) => setDoc({ ...doc, volumeDb: db || undefined }, 'volume')}
                 focus={focusVoice}
                 note={selectedNote}
                 onChange={(dynamics, key) => setDoc({ ...doc, dynamics }, key)}

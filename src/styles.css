@@ -892,6 +892,10 @@ input[type='range']:disabled {
   margin: 16px 0 8px;
 }
 
+.card > h3:first-child {
+  margin-top: 0;
+}
+
 .card .kinds-note {
   margin: -4px 0 8px;
 }
@@ -1069,6 +1073,11 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
 
 .list-head h3 {
   margin: 0;
+}
+
+/* In a card of its own padding (the voicing), the heading lines up with the card's text. */
+.card.dynamics .list-head {
+  padding: 0;
 }
 
 .list-groups {

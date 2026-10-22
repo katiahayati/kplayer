@@ -44,6 +44,7 @@ export class Player {
     private readonly ctx: AudioContext,
     private readonly seq: Sequencer,
     private readonly wet: GainNode,
+    private readonly master: GainNode,
   ) {}
 
   /**
@@ -58,8 +59,12 @@ export class Player {
     onProgress?.('Preparing sounds…');
     const synth = new WorkletSynthesizer(ctx);
 
-    // Straight to the speakers, and through the hall (bass kept out of it).
+    // Straight to the speakers, and through the hall (bass kept out of it); both through the volume, and a
+    // limiter that keeps a turned-up piece's loudest chords from distorting (untouched at the usual volume).
     const input = ctx.createGain();
+    const master = new GainNode(ctx);
+    const limiter = new DynamicsCompressorNode(ctx, { threshold: -1, knee: 0, ratio: 20, attack: 0.002, release: 0.15 });
+    master.connect(limiter).connect(ctx.destination);
     const highPass = new BiquadFilterNode(ctx, { type: 'highpass', frequency: HALL.highpassHz, Q: 20 * Math.log10(Math.SQRT1_2) });
     const hall = new ConvolverNode(ctx, { disableNormalization: true });
     const [left, right] = hallImpulse(ctx.sampleRate);
@@ -69,8 +74,8 @@ export class Player {
     hall.buffer = ir;
     const wet = new GainNode(ctx, { gain: HALL.wetGain });
     synth.connect(input);
-    input.connect(ctx.destination);
-    input.connect(highPass).connect(hall).connect(wet).connect(ctx.destination);
+    input.connect(master);
+    input.connect(highPass).connect(hall).connect(wet).connect(master);
 
     const loaded: string[] = [];
     for (const [i, bank] of banks.entries()) {
@@ -82,7 +87,7 @@ export class Player {
     synth.soundBankManager.priorityOrder = loaded;
     await synth.isReady;
     const seq = new Sequencer(synth, { skipToFirstNoteOn: false });
-    return new Player(ctx, seq, wet);
+    return new Player(ctx, seq, wet, master);
   }
 
   /** Replaces what's playing, keeping play/pause state unless told otherwise. */
@@ -100,6 +105,11 @@ export class Player {
   /** How much hall: 0 for none, 1 for the usual amount. */
   setHall(level: number): void {
     this.wet.gain.setTargetAtTime(HALL.wetGain * Math.max(0, level), this.ctx.currentTime, 0.05);
+  }
+
+  /** The whole piece louder or softer, in dB (0 as it plays). */
+  setVolume(db: number): void {
+    this.master.gain.setTargetAtTime(10 ** (db / 20), this.ctx.currentTime, 0.05);
   }
 
   play(): void {
