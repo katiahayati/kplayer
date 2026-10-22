@@ -54,6 +54,8 @@ export class Player {
     const ctx = audioContext();
     onProgress?.('Loading sounds…');
     const [, ...data] = await Promise.all([ctx.audioWorklet.addModule(processorUrl), ...download(banks, onProgress)]);
+    // Downloaded; unpacking the samples takes a moment more.
+    onProgress?.('Preparing sounds…');
     const synth = new WorkletSynthesizer(ctx);
 
     // Straight to the speakers, and through the hall (bass kept out of it).
@@ -139,7 +141,8 @@ function download(banks: SoundBankSource[], onProgress?: (msg: string) => void):
   const report = () => {
     const total = sizes.reduce((a, b) => a + b, 0);
     const done = got.reduce((a, b) => a + b, 0);
-    onProgress?.(known.every(Boolean) && total ? `Loading sounds… ${Math.floor((100 * done) / total)}%` : `Loading sounds… ${Math.round(done / 1e6)} MB`);
+    // A no-break space keeps the number with its unit when the status wraps.
+    onProgress?.(known.every(Boolean) && total ? `Loading sounds… ${Math.floor((100 * done) / total)}%` : `Loading sounds… ${Math.round(done / 1e6)}\u00a0MB`);
   };
   return banks.map(async (bank, i) => {
     try {

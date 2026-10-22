@@ -19,18 +19,22 @@ Export your score from MuseScore or Sibelius as MusicXML (`.musicxml` or `.mxl`)
 | Do this | To |
 |---|---|
 | Click a note, press **B** | Breathe after it: a small broaden from that note to the next one, slowest at the breath |
-| Click a note, shift-click another | Select a passage, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
+| Click a note, shift-click another (or **Select to…**, then the last note) | Select a passage, then choose **Slow down**, **Speed up**, **Broaden**, **Push forward** or **A tempo** |
 | "Use the score's N breath marks" | Turn the breath marks already written in the score into real breaths |
 | Select a breath or tempo change, press **L** | Loop from a measure before to a measure after it, while you adjust its sliders |
 | **E** (the **Phrasing** switch) | Compare with and without your breaths and tempo changes |
 | Switch a breath or tempo change off in the list | Hear the piece without it, keeping its settings (**Breaths** / **Tempo changes** switch them all) |
 | **D** (the **Dynamics** switch) | Compare with and without dynamics |
 | **H** | Play in a concert hall, or dry (the slider beside **Hall** sets how much) |
-| **Space**, double-click a note | Play/pause, play from that note |
+| **Space**; double-click a note or **Play from here** | Play/pause; play from that note |
+| **Tab** to the score, then the arrow keys | Move from note to note (left/right along a staff, up/down through chords and staves); **Shift** with an arrow selects a passage, **Enter** plays from it |
 | Click the tempo lane | Seek; select the gesture under the cursor |
-| **Ctrl+Z** / **Ctrl+Shift+Z** | Undo / redo |
-| **Ctrl+S** | Save piece |
+| **Ctrl+Z** / **Ctrl+Shift+Z** (**⌘** on a Mac) | Undo / redo |
+| **Ctrl+S** (**⌘S**) | Save piece |
 | **Mixer** | Each part's volume, and muting |
+
+On a phone, the score is laid out larger (a bar or two to a line), tap a note and use **Select to…** for a
+passage, and the sound settings are in the menu next to **Play**.
 
 - A breath is set by **extra time** (e.g. 300 ms). The tempo eases down through the note before the breath, is
   slowest at the breath, and eases back up through the note after it. Everything outside those two notes stays in

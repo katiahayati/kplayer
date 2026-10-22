@@ -4,6 +4,9 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+/** How the shortcut modifier reads on this computer: ⌘ on a Mac, Ctrl elsewhere. */
+export const MOD = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl+';
+
 /** A checkbox drawn as a switch. With `label`, the whole label toggles it. */
 export function Switch(p: {
   checked: boolean;

@@ -6,7 +6,7 @@ import { FileDown, FileJson, FolderOpen, Pause, Play, Redo2, Repeat, Save, SkipB
 import type { ScorePart } from '../perf/render';
 import type { PartSetting } from '../perf/types';
 import { OPEN_ACCEPT } from '../storage/piece';
-import { Popover, Switch } from './controls';
+import { MOD, Popover, Switch } from './controls';
 import { usePlayhead, type Playhead } from './playhead';
 
 interface TopBarProps {
@@ -45,10 +45,10 @@ export function TopBar(p: TopBarProps) {
       <input ref={importRef} type="file" accept=".json" hidden onChange={(e) => pickFile(e, p.onImport)} />
       {p.open ? (
         <>
-          <button className="icon" onClick={p.onUndo} disabled={!p.canUndo} title="Undo (Ctrl+Z)" aria-label="Undo">
+          <button className="icon" onClick={p.onUndo} disabled={!p.canUndo} title={`Undo (${MOD}Z)`} aria-label="Undo">
             <Undo2 size={18} />
           </button>
-          <button className="icon" onClick={p.onRedo} disabled={!p.canRedo} title="Redo (Ctrl+Shift+Z)" aria-label="Redo">
+          <button className="icon" onClick={p.onRedo} disabled={!p.canRedo} title={`Redo (${MOD}Shift+Z)`} aria-label="Redo">
             <Redo2 size={18} />
           </button>
           <Popover className="file-menu" align="right" ariaLabel="File menu" button={<>File</>}>
@@ -62,7 +62,7 @@ export function TopBar(p: TopBarProps) {
                   onClick={item(close, p.onSavePiece)}
                   title="One .kplayer file with the score and your phrasing and dynamics: open it to get everything back"
                 >
-                  <Save size={16} /> Save piece… <kbd>Ctrl S</kbd>
+                  <Save size={16} /> Save piece… <kbd>{MOD}S</kbd>
                 </button>
                 <hr />
                 <button role="menuitem" onClick={item(close, () => importRef.current?.click())} title="Phrasing and dynamics from a JSON file, for the open score">
@@ -186,7 +186,8 @@ export function PlayerBar(p: PlayerBarProps) {
           <span>{p.playing ? 'Pause' : 'Play'}</span>
         </button>
       </div>
-      <Position playhead={p.playhead} positionAt={p.positionAt} />
+      {/* On a phone there's room for one: while the sounds load, that's what to know. */}
+      {!(p.compact && p.status) && <Position playhead={p.playhead} positionAt={p.positionAt} />}
       <Tempo playhead={p.playhead} tempoAt={p.tempoAt} />
       {p.loopLabel && (
         <span className="pill loop">

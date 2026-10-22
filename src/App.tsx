@@ -768,9 +768,6 @@ export default function App() {
       ) : (
         <div className="empty">
           <div className="welcome">
-            <div className="logo big" aria-hidden>
-              k
-            </div>
             <h1>kplayer</h1>
             <p className="tagline">Rehearse with a score that breathes with you: breaths, give and take in the tempo, and dynamics, played on a concert grand.</p>
             <label className="dropzone">

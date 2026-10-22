@@ -67,7 +67,7 @@ export async function loadScore(name: string, bytes: Uint8Array): Promise<Loaded
 
   tk.setOptions(VEROVIO_OPTIONS);
   const ok = isZip ? tk.loadZipDataBuffer(bytes.slice().buffer as ArrayBuffer) : tk.loadData(new TextDecoder().decode(bytes));
-  if (!ok) throw new Error(`Verovio couldn't read ${name}. Is it MusicXML (.musicxml, .xml or .mxl)?`);
+  if (!ok) throw new Error(`Couldn't read ${name} as a score. kplayer opens MusicXML (.musicxml, .xml or .mxl, exported from MuseScore or Sibelius) and kplayer pieces (.kplayer).`);
 
   const rendered = renderLoaded(tk);
   loaded = {

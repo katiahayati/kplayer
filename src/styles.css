@@ -152,6 +152,16 @@ a {
   color: inherit;
 }
 
+/* The browser's own surfaces, in the app's colours. */
+::selection {
+  background: color-mix(in srgb, var(--select) 24%, transparent);
+}
+
+* {
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}
+
 /* ---- Buttons and controls ---- */
 
 button,
@@ -626,14 +636,6 @@ input[type='range']:disabled {
   padding-bottom: 2px;
 }
 
-.logo.big {
-  width: 64px;
-  height: 64px;
-  border-radius: 16px;
-  font-size: 2.75rem;
-  padding-bottom: 6px;
-  box-shadow: var(--shadow-2);
-}
 
 .piece-title {
   min-width: 0;
@@ -906,18 +908,6 @@ input[type='range']:disabled {
   color: var(--warn);
 }
 
-/* The editor of a breath or tempo change: its colour along the top. */
-.card.editor {
-  border-top: 3px solid var(--line-strong);
-}
-
-.card.editor.breath { border-top-color: var(--breath); }
-.card.editor.slower { border-top-color: var(--slower); }
-.card.editor.faster { border-top-color: var(--faster); }
-.card.editor.broaden { border-top-color: var(--broaden); }
-.card.editor.push { border-top-color: var(--push); }
-.card.editor.aTempo { border-top-color: var(--atempo); }
-
 .editor-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1130,13 +1120,9 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   opacity: 0.45;
 }
 
-/* Against the playhead: acting now, still holding its tempo, or the playhead between gestures. */
-.list li:has(button.now) {
-  box-shadow: inset 3px 0 0 var(--accent);
-}
-
-.list li:has(button.holding) {
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+/* Against the playhead: acting now (tinted, and tagged), still holding its tempo (tagged), or the playhead between them. */
+.list li:has(button.now):not(:has(button.active)) {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .list .tag {
@@ -1663,7 +1649,7 @@ button.play:hover:not(:disabled) {
   font: 600 var(--text-display) / 1.1 var(--font-title);
   letter-spacing: -0.02em;
   text-wrap: balance;
-  margin: 18px 0 6px;
+  margin: 0 0 8px;
 }
 
 .welcome .tagline {
@@ -1788,6 +1774,7 @@ button.play:hover:not(:disabled) {
 /* Phones: text a step larger, and a shorter tempo lane without its label (the player bar shows where you are). */
 @media (max-width: 600px) {
   :root {
+    --text-heading: 1.3125rem;
     --text-body: 1rem;
     --text-secondary: 0.9375rem;
     --text-label: 0.8125rem;

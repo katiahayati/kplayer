@@ -4,7 +4,7 @@ import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
 import type { Anchor, BreathGesture, Gesture, RampGesture, ShapeGesture } from '../perf/types';
-import { Slider, Switch } from './controls';
+import { MOD, Slider, Switch } from './controls';
 import { usePlayhead, type Playhead } from './playhead';
 
 export type SectionKind = 'slower' | 'faster' | 'broaden' | 'push' | 'aTempo';
@@ -394,10 +394,10 @@ function GestureList({ gestures, gesture, onSelect, onSetEnabled, onClearAll, sp
         <h3>In this performance</h3>
         <button
           className="danger small"
-          title="Remove every breath and tempo change (Ctrl+Z undoes it)"
+          title={`Remove every breath and tempo change (${MOD}Z undoes it)`}
           onClick={() => {
             const n = gestures.length;
-            if (confirm(`Remove all ${n} breaths and tempo changes? Ctrl+Z undoes it.`)) onClearAll();
+            if (confirm(`Remove all ${n} breaths and tempo changes? ${MOD}Z undoes it.`)) onClearAll();
           }}
         >
           Clear all
