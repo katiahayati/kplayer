@@ -9,7 +9,7 @@ import { renderPerformanceMidi } from './perf/render';
 import { buildTimeMap, sectionLevelAt, type TimeMap, type TimingGesture } from './perf/timeline';
 import { emptyDoc, type Anchor, type Gesture, type PartSetting, type PerformanceDoc } from './perf/types';
 import { ScoreView, type BreathMarker } from './score/ScoreView';
-import { loadScore, type LoadedScore } from './score/verovio';
+import { layoutPages, loadScore, VEROVIO_OPTIONS, type LoadedScore } from './score/verovio';
 import { loadSaved, parseDoc, save, saveFile, type FileKind } from './storage/persist';
 import { looksLikePiece, OPEN_ACCEPT, PIECE_EXTENSION, readPiece, writePiece } from './storage/piece';
 import { DynamicsPanel } from './ui/DynamicsPanel';
@@ -17,6 +17,7 @@ import { Inspector, type PickField, type RampInfo, type SectionKind } from './ui
 import { formatTime, TempoLane } from './ui/TempoLane';
 import { PlayerBar, TopBar } from './ui/Transport';
 import { useHistory } from './ui/useHistory';
+import { useMediaQuery } from './ui/useMediaQuery';
 
 const SOUND_BANKS: SoundBankSource[] = [
   { id: 'piano', url: `${import.meta.env.BASE_URL}soundfonts/SalamanderGrandPiano.sf3`, optional: true },
@@ -66,6 +67,8 @@ export default function App() {
   const [loopGestureId, setLoopGestureId] = useState<string>();
   /** A shape waiting for a note click to set its peak or hold note. */
   const [picking, setPicking] = useState<{ gestureId: string; field: PickField }>();
+  /** Waiting for the note that ends a passage: shift-click without a keyboard. */
+  const [extending, setExtending] = useState(false);
   const [playQ, setPlayQ] = useState(0);
   const [playing, setPlaying] = useState(false);
 
@@ -80,6 +83,25 @@ export default function App() {
   playQRef.current = playQ;
   /** Where playing again starts once the piece has ended: the selected notes, else the beginning. */
   const restartQRef = useRef(0);
+
+  // ---- Layout ----------------------------------------------------------------
+
+  // On a narrow screen the score is laid out on a narrower page: fewer bars to a line, larger notes.
+  const phone = useMediaQuery('(max-width: 600px)');
+  /** A phone upright or on its side: one row of player controls, the sound settings in a menu. */
+  const compact = useMediaQuery('(max-width: 600px), (max-height: 500px)');
+  const narrow = useMediaQuery('(max-width: 900px)');
+  const pageWidth = phone ? 1000 : narrow ? 1600 : VEROVIO_OPTIONS.pageWidth;
+  const [relaid, setRelaid] = useState<{ score: LoadedScore; width: number; pages: string[] }>();
+  useEffect(() => {
+    if (!score || pageWidth === VEROVIO_OPTIONS.pageWidth) return;
+    let live = true;
+    void layoutPages(score, pageWidth).then((pages) => live && pages && setRelaid({ score, width: pageWidth, pages }));
+    return () => {
+      live = false;
+    };
+  }, [score, pageWidth]);
+  const pages = relaid && relaid.score === score && relaid.width === pageWidth ? relaid.pages : score?.pages;
 
   // ---- Timing --------------------------------------------------------------
 
@@ -438,11 +460,19 @@ export default function App() {
       }
       const span = nearestSpan(score.index.spans.get(id), playQRef.current);
       if (double && span) return seekTo(span.qOn, true);
-      setSelection((s) => (shift && s.kind === 'notes' ? { ...s, focusId: id } : { kind: 'notes', anchorId: id, focusId: id }));
-      if (!shift && span && !player.current?.playing) seekTo(span.qOn);
+      const extend = (shift || extending) && selection.kind === 'notes';
+      setExtending(false);
+      setSelection((s) => (extend && s.kind === 'notes' ? { ...s, focusId: id } : { kind: 'notes', anchorId: id, focusId: id }));
+      if (!extend && span && !player.current?.playing) seekTo(span.qOn);
     },
-    [score, seekTo, pickField, selectedGesture, updateGesture],
+    [score, seekTo, pickField, selectedGesture, updateGesture, extending, selection.kind],
   );
+  /** Plays from the start of the selected notes. */
+  const playFromSelection = () => noteRange && seekTo(noteRange.q0, true);
+  // Extending only makes sense from a selected note.
+  useEffect(() => {
+    if (selection.kind !== 'notes') setExtending(false);
+  }, [selection.kind]);
 
   // ---- Actions ---------------------------------------------------------------
 
@@ -558,6 +588,7 @@ export default function App() {
       deleteGesture(selection.id);
     } else if (e.key === 'Escape') {
       if (pickField) setPicking(undefined);
+      else if (extending) setExtending(false);
       else setSelection({ kind: 'none' });
     }
   };
@@ -606,12 +637,13 @@ export default function App() {
           <main className="workspace">
             <ScoreView
               score={score}
+              pages={pages ?? score.pages}
               playQ={playQ}
               playing={playing}
               selectedIds={selectedIds}
               rangeIds={rangeIds}
               breaths={breathMarkers}
-              picking={!!pickField}
+              picking={!!pickField || extending}
               onNoteClick={onNoteClick}
               onBreathClick={(id) => setSelection({ kind: 'gesture', id })}
             />
@@ -629,6 +661,9 @@ export default function App() {
               loopOn={!!loopGestureId && loopGestureId === selectedGesture?.id}
               onAddBreath={addBreath}
               onAddSection={addSection}
+              extending={extending}
+              onExtend={() => setExtending((x) => !x)}
+              onPlayFrom={playFromSelection}
               onChange={updateGesture}
               onSetEnabled={setEnabled}
               onDelete={deleteGesture}
@@ -653,6 +688,7 @@ export default function App() {
           </main>
           <footer className="dock">
             <PlayerBar
+              compact={compact}
               playing={playing}
               position={position}
               bpm={map?.bpmAt(playQ)}

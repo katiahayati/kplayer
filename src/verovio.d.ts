@@ -12,6 +12,8 @@ declare module 'verovio/esm' {
     loadData(data: string): boolean;
     loadZipDataBuffer(data: ArrayBuffer): boolean;
     getPageCount(): number;
+    /** Lays the loaded score out again after layout options (page size, zoom) change. */
+    redoLayout(options?: Record<string, unknown>): void;
     renderToSVG(pageNo?: number, xmlDeclaration?: boolean): string;
     renderToMIDI(): string;
     renderToTimemap(options?: { includeMeasures?: boolean; includeRests?: boolean }): unknown[];

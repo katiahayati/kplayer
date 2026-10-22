@@ -46,6 +46,8 @@ export const VEROVIO_OPTIONS = {
 };
 
 let toolkit: Promise<VerovioToolkit> | undefined;
+/** The score the toolkit holds, for laying it out again. */
+let loaded: LoadedScore | undefined;
 
 function getToolkit(): Promise<VerovioToolkit> {
   // Loaded on first use: the module is ~7 MB with its WASM inlined.
@@ -65,13 +67,29 @@ export async function loadScore(name: string, bytes: Uint8Array): Promise<Loaded
   if (!ok) throw new Error(`Verovio couldn't read ${name}. Is it MusicXML (.musicxml, .xml or .mxl)?`);
 
   const rendered = renderLoaded(tk);
-  return {
+  loaded = {
     ...rendered,
     name,
     sha256: await sha256(bytes),
     title: titleFrom(rendered.pages[0]) ?? name.replace(/\.[^.]+$/, ''),
     bytes,
   };
+  return loaded;
+}
+
+/**
+ * The score's pages laid out for another page width: a narrower page has fewer bars to a line, so the notation
+ * is larger on a small screen. Notes keep their IDs, so selections and the playhead carry over. Undefined when
+ * another score has been loaded since.
+ */
+export async function layoutPages(score: LoadedScore, pageWidth: number): Promise<string[] | undefined> {
+  const tk = await getToolkit();
+  if (loaded !== score) return undefined;
+  tk.setOptions({ ...VEROVIO_OPTIONS, pageWidth });
+  tk.redoLayout();
+  const pages: string[] = [];
+  for (let p = 1; p <= tk.getPageCount(); p++) pages.push(tk.renderToSVG(p));
+  return pages;
 }
 
 /** Everything the player needs from a toolkit that has a score loaded. */

@@ -121,6 +121,15 @@ describe('app', () => {
     await undo();
     expect(text()).not.toContain('Broaden · 10%');
 
+    // Without a Shift key (a phone): Select to…, then the passage's last note.
+    await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
+    await click(voiceBar1[0]);
+    await click(button('Select to…'));
+    expect(text()).toContain('Select the last note of the passage');
+    await click(voiceBar1[2]);
+    expect(text()).toContain('Passage');
+    expect(text()).not.toContain('Select the last note of the passage');
+
     // A Slow down keeps its tempo after it ends: past it, the panel shows it as holding.
     await act(async () => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })));
     await click(voiceBar1[0]);

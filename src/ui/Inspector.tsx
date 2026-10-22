@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronUp, MousePointerClick, PlayCircle, Repeat, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, MousePointerClick, MoveRight, Play, PlayCircle, Repeat, Trash2 } from 'lucide-react';
 import { playedMeasureAt, resolveAnchor, type ScoreIndex } from '../perf/anchors';
 import { BREATH_PRESETS, type BreathPresetKey } from '../perf/presets';
 import type { BreathResult } from '../perf/timeline';
@@ -36,6 +36,11 @@ interface Props {
   onImportBreathMarks: () => void;
   onAddBreath: () => void;
   onAddSection: (kind: SectionKind) => void;
+  /** Waiting for the note that ends a passage (shift-click without a keyboard). */
+  extending?: boolean;
+  onExtend?: () => void;
+  /** Plays from the selected notes. */
+  onPlayFrom?: () => void;
   onChange: (id: string, patch: Partial<Gesture>, key: string) => void;
   /** Switches gestures on or off without deleting them. */
   onSetEnabled: (ids: string[], on: boolean) => void;
@@ -58,6 +63,11 @@ export function Inspector(p: Props) {
   const [tab, setTab] = useState<Tab>('phrasing');
   /** Folded away to its tabs (narrow windows only). */
   const [collapsed, setCollapsed] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 600px)').matches);
+  // Selecting something opens the panel, so its actions are there.
+  const selected = p.gesture?.id ?? (p.noteSelection ? 'notes' : '');
+  useEffect(() => {
+    if (selected) setCollapsed(false);
+  }, [selected]);
   // Picking a breath or tempo change (in the score or the tempo lane) shows it.
   useEffect(() => {
     if (p.gesture) setTab('phrasing');
@@ -100,7 +110,7 @@ export function Inspector(p: Props) {
   );
 }
 
-function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMarks, onAddBreath, onAddSection }: Props) {
+function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMarks, onAddBreath, onAddSection, extending, onExtend, onPlayFrom }: Props) {
   if (!noteSelection) {
     return (
       <section className="card hint">
@@ -114,20 +124,23 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
           <li>
             <span className="step-icon breath">,</span>
             <span>
-              Click a note, then press <kbd>B</kbd> to breathe after it.
+              Select a note, then <strong>Breathe after</strong> it (or press <kbd>B</kbd>).
             </span>
           </li>
           <li>
             <span className="step-icon">
               <MousePointerClick size={16} />
             </span>
-            <span>Click a note and shift-click another to slow down, speed up, broaden or push forward the passage between.</span>
+            <span>
+              Select a passage: its first note, then shift-click its last one (or use <strong>Select to…</strong>). Then slow it down, speed it up,
+              broaden it or push it forward.
+            </span>
           </li>
           <li>
             <span className="step-icon">
               <PlayCircle size={16} />
             </span>
-            <span>Double-click a note to play from there.</span>
+            <span>Double-click a note, or use <strong>Play from here</strong>, to play from it.</span>
           </li>
         </ol>
       </section>
@@ -148,12 +161,25 @@ function SelectionActions({ noteSelection, unusedBreathMarks, onImportBreathMark
           {noteSelection.single ? anchorLabel(noteSelection.to) : `${anchorLabel(noteSelection.from)} → ${anchorLabel(noteSelection.to)}`}
         </span>
       </div>
+      <div className="note-actions">
+        <button onClick={onPlayFrom} title="Play from the selected note (or double-click it)">
+          <Play size={15} /> Play from here
+        </button>
+        <button className={extending ? 'active' : ''} onClick={onExtend} title="Then select the last note of the passage (or shift-click it)" aria-pressed={!!extending}>
+          <MoveRight size={15} /> {noteSelection.single ? 'Select to…' : 'Change the end…'}
+        </button>
+      </div>
+      {extending && (
+        <p className="hint-pick">
+          Select the last note of the passage. <kbd>Esc</kbd> cancels.
+        </p>
+      )}
       <button className="kind breath wide" onClick={onAddBreath} title="Breath after this note (B)">
         <span className="swatch breath" />
         Breathe after <kbd>B</kbd>
       </button>
       <h3>
-        Tempo change {noteSelection.single && <span className="muted">· shift-click a later note to make a passage</span>}
+        Tempo change {noteSelection.single && <span className="muted">· over this note, or Select to… a later one</span>}
       </h3>
       <div className="kinds">
         {kinds.map(([kind, label]) => (

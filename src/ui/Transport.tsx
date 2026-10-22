@@ -87,6 +87,8 @@ export function TopBar(p: TopBarProps) {
 }
 
 interface PlayerBarProps {
+  /** A phone: the sound settings fold into one menu. */
+  compact?: boolean;
   playing: boolean;
   /** "m. 12 · 0:42.1 / 2:06.8" */
   position: string;
@@ -115,8 +117,66 @@ interface PlayerBarProps {
 export function PlayerBar(p: PlayerBarProps) {
   const [bar, time] = p.position.split(' · ');
   const muted = p.parts.filter((part) => p.partSettings[part.index]?.mute).length;
+  const listen = (
+    <div className="listen">
+      <Switch label="Phrasing" checked={p.expressive} onChange={p.onExpressive} title="Hear it with or without your breaths and tempo changes (E)" />
+      <Switch label="Dynamics" checked={p.dynamics} onChange={p.onDynamics} title="Hear it with or without dynamics: the score's and your voicing (D)" />
+    </div>
+  );
+  const tempo = (
+    <label className="tempo" title="Speed of the whole piece, against the written tempo">
+      <span>Tempo</span>
+      <input type="range" min={50} max={150} step={1} value={Math.round(p.tempoFactor * 100)} onChange={(e) => p.onTempoFactor(Number(e.target.value) / 100)} />
+      <output>{Math.round(p.tempoFactor * 100)}%</output>
+    </label>
+  );
+  const hall = (
+    <span className="hall">
+      <Switch label="Hall" checked={p.hall.on} onChange={(on) => p.onHall({ ...p.hall, on })} title="Play in a concert hall, or dry as if close-miked (H)" />
+      <input
+        type="range"
+        min={0}
+        max={200}
+        step={5}
+        value={Math.round(p.hall.level * 100)}
+        disabled={!p.hall.on}
+        title={`How much hall: ${Math.round(p.hall.level * 100)}%`}
+        aria-label="How much hall"
+        onChange={(e) => p.onHall({ ...p.hall, level: Number(e.target.value) / 100 })}
+      />
+    </span>
+  );
+  const mixer = (
+    <div className="mixer-panel">
+      {p.parts.map((part) => {
+        const s = p.partSettings[part.index] ?? { mute: false, volume: 1 };
+        return (
+          <div key={part.index} className={`part${s.mute ? ' muted' : ''}`}>
+            <button
+              className="icon"
+              onClick={() => p.onPart(part.index, { ...s, mute: !s.mute })}
+              title={s.mute ? 'Unmute' : 'Mute'}
+              aria-label={`${s.mute ? 'Unmute' : 'Mute'} ${part.name}`}
+            >
+              {s.mute ? <VolumeX size={16} /> : <Volume2 size={16} />}
+            </button>
+            <span className="name">{part.name}</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(s.volume * 100)}
+              aria-label={`${part.name} volume`}
+              onChange={(e) => p.onPart(part.index, { ...s, volume: Number(e.target.value) / 100 })}
+            />
+            <output>{Math.round(s.volume * 100)}%</output>
+          </div>
+        );
+      })}
+    </div>
+  );
   return (
-    <div className="playerbar">
+    <div className={`playerbar${p.compact ? ' compact' : ''}`}>
       <div className="transport-buttons">
         <button className="icon" onClick={p.onRewind} title="Back to the beginning (Home)" aria-label="Back to the beginning">
           <SkipBack size={18} />
@@ -152,70 +212,37 @@ export function PlayerBar(p: PlayerBarProps) {
       )}
       {p.status && <span className="status">{p.status}</span>}
       <span className="spacer" />
-      <div className="listen">
-        <Switch label="Phrasing" checked={p.expressive} onChange={p.onExpressive} title="Hear it with or without your breaths and tempo changes (E)" />
-        <Switch label="Dynamics" checked={p.dynamics} onChange={p.onDynamics} title="Hear it with or without dynamics: the score's and your voicing (D)" />
-      </div>
-      <label className="tempo" title="Speed of the whole piece, against the written tempo">
-        <span>Tempo</span>
-        <input type="range" min={50} max={150} step={1} value={Math.round(p.tempoFactor * 100)} onChange={(e) => p.onTempoFactor(Number(e.target.value) / 100)} />
-        <output>{Math.round(p.tempoFactor * 100)}%</output>
-      </label>
-      <span className="hall">
-        <Switch label="Hall" checked={p.hall.on} onChange={(on) => p.onHall({ ...p.hall, on })} title="Play in a concert hall, or dry as if close-miked (H)" />
-        <input
-          type="range"
-          min={0}
-          max={200}
-          step={5}
-          value={Math.round(p.hall.level * 100)}
-          disabled={!p.hall.on}
-          title={`How much hall: ${Math.round(p.hall.level * 100)}%`}
-          aria-label="How much hall"
-          onChange={(e) => p.onHall({ ...p.hall, level: Number(e.target.value) / 100 })}
-        />
-      </span>
-      <Popover
-        className="mixer"
-        align="right"
-        up
-        title="Each part's volume, and muting"
-        button={
-          <>
-            <SlidersHorizontal size={16} /> Mixer{muted ? <span className="badge">{muted} muted</span> : null}
-          </>
-        }
-      >
-        {() => (
-          <div className="mixer-panel">
-            {p.parts.map((part) => {
-              const s = p.partSettings[part.index] ?? { mute: false, volume: 1 };
-              return (
-                <div key={part.index} className={`part${s.mute ? ' muted' : ''}`}>
-                  <button
-                    className="icon"
-                    onClick={() => p.onPart(part.index, { ...s, mute: !s.mute })}
-                    title={s.mute ? 'Unmute' : 'Mute'}
-                    aria-label={`${s.mute ? 'Unmute' : 'Mute'} ${part.name}`}
-                  >
-                    {s.mute ? <VolumeX size={16} /> : <Volume2 size={16} />}
-                  </button>
-                  <span className="name">{part.name}</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={Math.round(s.volume * 100)}
-                    aria-label={`${part.name} volume`}
-                    onChange={(e) => p.onPart(part.index, { ...s, volume: Number(e.target.value) / 100 })}
-                  />
-                  <output>{Math.round(s.volume * 100)}%</output>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Popover>
+      {p.compact ? (
+        <Popover className="sound-menu" align="right" up title="Phrasing, dynamics, tempo, hall and each part's volume" ariaLabel="Sound settings" button={<SlidersHorizontal size={18} />}>
+          {() => (
+            <div className="sound-panel">
+              {listen}
+              {tempo}
+              {hall}
+              {mixer}
+            </div>
+          )}
+        </Popover>
+      ) : (
+        <>
+          {listen}
+          {tempo}
+          {hall}
+          <Popover
+            className="mixer"
+            align="right"
+            up
+            title="Each part's volume, and muting"
+            button={
+              <>
+                <SlidersHorizontal size={16} /> Mixer{muted ? <span className="badge">{muted} muted</span> : null}
+              </>
+            }
+          >
+            {() => mixer}
+          </Popover>
+        </>
+      )}
     </div>
   );
 }

@@ -14,6 +14,8 @@ export interface BreathMarker {
 
 interface Props {
   score: LoadedScore;
+  /** The pages to show: the score's own, or laid out again for a narrow screen. */
+  pages: string[];
   playQ: number;
   playing: boolean;
   /** Base IDs shown as selected. */
@@ -27,13 +29,13 @@ interface Props {
   onBreathClick: (gestureId: string) => void;
 }
 
-export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breaths, picking, onNoteClick, onBreathClick }: Props) {
+export function ScoreView({ score, pages, playQ, playing, selectedIds, rangeIds, breaths, picking, onNoteClick, onBreathClick }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const elements = useRef(new Map<string, Element | null>());
   const [markerPos, setMarkerPos] = useState<{ marker: BreathMarker; left: number; top: number }[]>([]);
 
-  useEffect(() => elements.current.clear(), [score]);
+  useEffect(() => elements.current.clear(), [score, pages]);
   const el = (id: string): Element | null => {
     const cache = elements.current;
     if (!cache.has(id)) cache.set(id, pagesRef.current?.querySelector(`[id="${CSS.escape(id)}"]`) ?? null);
@@ -88,10 +90,10 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
         scroller.scrollTo({ top: scroller.scrollTop + r.top - s.top - 24, behavior: 'smooth' });
       }
     }
-  }, [playQ, playing, sounding]);
+  }, [playQ, playing, sounding, pages]);
 
-  useEffect(() => toggleClass(pagesRef.current, 'selected', selectedIds), [selectedIds, score]);
-  useEffect(() => toggleClass(pagesRef.current, 'in-range', rangeIds), [rangeIds, score]);
+  useEffect(() => toggleClass(pagesRef.current, 'selected', selectedIds), [selectedIds, score, pages]);
+  useEffect(() => toggleClass(pagesRef.current, 'in-range', rangeIds), [rangeIds, score, pages]);
 
   useLayoutEffect(() => {
     const wrap = pagesRef.current;
@@ -117,7 +119,7 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
     const ro = new ResizeObserver(place);
     ro.observe(wrap);
     return () => ro.disconnect();
-  }, [breaths, endingAt, score]);
+  }, [breaths, endingAt, score, pages]);
 
   const handleClick = (ev: React.MouseEvent, double: boolean) => {
     const hit = (ev.target as Element).closest('g.note, g.rest, g.mRest') ?? nearestNote(ev.clientX, ev.clientY);
@@ -127,14 +129,16 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
   /**
    * SVG only takes clicks on painted pixels, which misses the hollow middle of
    * half and whole notes and most of a thin rest. So a click within about a
-   * staff space and a half of a notehead or rest selects the nearest one.
+   * staff space and a half of a notehead or rest selects the nearest one; a
+   * tap, with a fingertip's reach.
    */
   const nearestNote = (x: number, y: number): Element | undefined => {
     const root = pagesRef.current;
     if (!root) return undefined;
     // A notehead is about one staff space tall, whatever the zoom.
     const space = root.querySelector('g.note .notehead')?.getBoundingClientRect().height || 8;
-    const reach = Math.max(8, space * 1.6);
+    const touch = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+    const reach = touch ? Math.max(22, space * 2.5) : Math.max(8, space * 1.6);
     let best: Element | undefined;
     let bestDist = Infinity;
     for (const el of root.querySelectorAll('g.note, g.rest, g.mRest')) {
@@ -151,7 +155,7 @@ export function ScoreView({ score, playQ, playing, selectedIds, rangeIds, breath
   return (
     <div className="score-scroll" ref={scrollRef}>
       <div className={`score-pages${picking ? ' picking' : ''}`} ref={pagesRef} onClick={(e) => handleClick(e, false)} onDoubleClick={(e) => handleClick(e, true)}>
-        <Pages pages={score.pages} />
+        <Pages pages={pages} />
         {markerPos.map(({ marker, left, top }) => (
           <button
             key={marker.gestureId}

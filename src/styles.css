@@ -525,8 +525,9 @@ input[type='range']:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  height: 52px;
-  padding: 0 12px 0 16px;
+  /* Clear of a phone's notch and rounded corners. */
+  height: calc(52px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) max(12px, env(safe-area-inset-right)) 0 max(16px, env(safe-area-inset-left));
   background: var(--panel);
   border-bottom: 1px solid var(--line);
   min-width: 0;
@@ -599,6 +600,8 @@ input[type='range']:disabled {
   margin: 0 auto;
   user-select: none;
   -webkit-user-select: none;
+  /* Taps select at once, with no wait for a double-tap zoom. */
+  touch-action: manipulation;
 }
 
 .svg-pages svg {
@@ -1084,6 +1087,19 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
   border-top: 1.5px solid var(--accent);
 }
 
+/* Under a selected note: play from it, or extend it to a passage. */
+.note-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.card .hint-pick {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
 /* ---- Dynamics ---- */
 
 .selected-note {
@@ -1194,6 +1210,7 @@ button.kind.aTempo:hover:not(:disabled) { border-color: var(--atempo); backgroun
 .dock {
   background: var(--panel);
   border-top: 1px solid var(--line);
+  padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   box-shadow: 0 -2px 10px rgb(40 30 20 / 0.04);
 }
 
@@ -1347,10 +1364,66 @@ button.play:hover:not(:disabled) {
   color: var(--accent);
 }
 
+/* On a phone: everything about how it sounds, in one menu. */
+.sound-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 10px;
+  min-width: min(320px, calc(100vw - 32px));
+}
+
+.sound-panel .listen {
+  display: flex;
+  gap: 20px;
+}
+
+.sound-panel .tempo,
+.sound-panel .hall {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sound-panel .tempo input,
+.sound-panel .hall input[type='range'] {
+  flex: 1;
+  width: auto;
+}
+
+.sound-panel .mixer-panel {
+  min-width: 0;
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.playerbar.compact {
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.playerbar.compact .position {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+  font-size: 13px;
+}
+
+.playerbar.compact .position .sep,
+.playerbar.compact .bpm {
+  display: none;
+}
+
+.playerbar.compact .spacer {
+  display: block;
+}
+
 /* ---- Tempo lane ---- */
 
 .tempo-lane {
   position: relative;
+  height: 112px;
   background: var(--panel);
   overflow: hidden;
 }
@@ -1543,7 +1616,8 @@ button.play:hover:not(:disabled) {
 
 /* ---- Narrow windows ---- */
 
-@media (max-width: 900px) {
+/* Narrow and tall (a tablet or a phone upright): the panel goes under the score. A phone on its side keeps it beside. */
+@media (max-width: 900px) and (min-height: 501px) {
   .workspace {
     grid-template-columns: 1fr;
     grid-template-rows: 1fr auto;
@@ -1601,4 +1675,140 @@ button.play:hover:not(:disabled) {
 .menu button kbd {
   margin-left: auto;
   padding-left: 12px;
+}
+
+/* Phones: a shorter tempo lane, without its label (the player bar shows where you are). */
+@media (max-width: 600px) {
+  .tempo-lane {
+    height: 76px;
+  }
+
+  .tempo-lane .lane-label,
+  .tempo-lane .lane-readout {
+    display: none;
+  }
+
+  .inspector {
+    max-height: 50vh;
+  }
+}
+
+/* A phone on its side: the score gets every pixel it can. */
+@media (max-height: 500px) {
+  .topbar {
+    height: calc(44px + env(safe-area-inset-top));
+  }
+
+  .playerbar {
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  .tempo-lane {
+    height: 52px;
+  }
+
+  .tempo-lane .lane-label,
+  .tempo-lane .lane-readout {
+    display: none;
+  }
+
+  .workspace {
+    grid-template-columns: 1fr 300px;
+  }
+
+  .score-scroll {
+    padding: 8px;
+  }
+
+  .tab-body {
+    padding: 8px;
+  }
+}
+
+/* Touch: targets a fingertip can hit (44 px), and controls sized to match. */
+@media (pointer: coarse) {
+  button,
+  .button {
+    min-height: 44px;
+  }
+
+  button.icon {
+    width: 44px;
+    min-height: 44px;
+  }
+
+  button.small {
+    min-height: 36px;
+    padding: 0 12px;
+  }
+
+  .tabs button {
+    min-height: 48px;
+  }
+
+  .segmented button {
+    min-height: 40px;
+  }
+
+  .menu button {
+    min-height: 44px;
+  }
+
+  .list li button {
+    min-height: 48px;
+  }
+
+  .switch-label {
+    min-height: 44px;
+  }
+
+  input.switch {
+    width: 42px;
+    height: 26px;
+  }
+
+  input.switch::before {
+    width: 22px;
+    height: 22px;
+  }
+
+  input.switch:checked::before {
+    transform: translateX(16px);
+  }
+
+  input.switch:indeterminate::before {
+    transform: translateX(8px);
+  }
+
+  input[type='range'] {
+    height: 36px;
+  }
+
+  input[type='range']::-webkit-slider-thumb {
+    width: 24px;
+    height: 24px;
+    margin-top: -10px;
+  }
+
+  input[type='range']::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  .chip-toggle {
+    min-height: 36px;
+    padding: 4px 12px;
+  }
+
+  .chip button,
+  .pill button {
+    width: 36px;
+    min-height: 36px;
+  }
+
+  .breath-marker {
+    min-width: 36px;
+    min-height: 36px;
+  }
 }

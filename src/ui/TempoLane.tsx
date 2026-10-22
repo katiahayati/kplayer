@@ -13,24 +13,31 @@ interface Props {
   onSelect: (gestureId: string) => void;
 }
 
-const HEIGHT = 112;
-const PAD_TOP = 28;
+/** Used until the lane is measured; its CSS sets the real height (less on a phone or a short window). */
+const DEFAULT_HEIGHT = 112;
 const PAD_BOTTOM = 22;
 
 /** The whole piece's tempo curve, with gesture spans, breaths and the playhead. */
 export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
+  const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const [hover, setHover] = useState<number>();
 
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    const measure = () => {
+      setWidth(el.clientWidth);
+      setHeight(el.clientHeight || DEFAULT_HEIGHT);
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setWidth(el.clientWidth);
+    measure();
     return () => ro.disconnect();
   }, []);
+  // Room at the top for the label and readout, when the lane is tall enough to show them.
+  const padTop = height >= 96 ? 28 : 10;
 
   const endQ = Math.max(map.endQ, 1e-6);
   const x = (q: number) => (q / endQ) * width;
@@ -61,10 +68,10 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
     return { pts, lo, hi };
   }, [map, timing, width, endQ]);
 
-  const y = (bpm: number) => PAD_TOP + (1 - (bpm - curve.lo) / (curve.hi - curve.lo)) * (HEIGHT - PAD_TOP - PAD_BOTTOM);
+  const y = (bpm: number) => padTop + (1 - (bpm - curve.lo) / (curve.hi - curve.lo)) * (height - padTop - PAD_BOTTOM);
   const path = (key: 'bpm' | 'base') =>
     curve.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p.q).toFixed(1)} ${y(p[key]).toFixed(1)}`).join(' ');
-  const floor = HEIGHT - PAD_BOTTOM;
+  const floor = height - PAD_BOTTOM;
   const area = `${path('bpm')} L${x(endQ).toFixed(1)} ${floor} L0 ${floor} Z`;
 
   const bands = timing.map((g, i) => {
@@ -88,12 +95,12 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
     <div className="tempo-lane" ref={ref}>
       <svg
         width={width}
-        height={HEIGHT}
+        height={height}
         onMouseMove={(e) => setHover(qOf(e.nativeEvent.offsetX))}
         onMouseLeave={() => setHover(undefined)}
         onClick={(e) => pick(qOf(e.nativeEvent.offsetX))}
       >
-        {loop && <rect className="loop-band" x={x(loop.q0)} width={x(loop.q1) - x(loop.q0)} y={0} height={HEIGHT} />}
+        {loop && <rect className="loop-band" x={x(loop.q0)} width={x(loop.q1) - x(loop.q0)} y={0} height={height} />}
         {bands.map((b) => (
           <rect
             key={b.key}
@@ -101,7 +108,7 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
             x={x(b.lo)}
             width={Math.max(2, x(b.hi) - x(b.lo))}
             y={0}
-            height={HEIGHT - PAD_BOTTOM}
+            height={height - PAD_BOTTOM}
           />
         ))}
         {bands.map((b) => (
@@ -116,9 +123,9 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
         ))}
         {index.played.map((m, i) => (
           <g key={i} className="measure-tick">
-            <line x1={x(m.q0)} x2={x(m.q0)} y1={HEIGHT - PAD_BOTTOM + 2} y2={HEIGHT - PAD_BOTTOM + (i % labelEvery ? 5 : 9)} />
+            <line x1={x(m.q0)} x2={x(m.q0)} y1={height - PAD_BOTTOM + 2} y2={height - PAD_BOTTOM + (i % labelEvery ? 5 : 9)} />
             {i % labelEvery === 0 && (
-              <text x={x(m.q0) + 2} y={HEIGHT - 3}>
+              <text x={x(m.q0) + 2} y={height - 3}>
                 {index.measures[m.measureIndex]?.label}
               </text>
             )}
@@ -134,7 +141,7 @@ export function TempoLane({ map, index, timing, selectedId, playQ, loop, onSeek,
         )}
         <line className="playhead" x1={x(playQ)} x2={x(playQ)} y1={0} y2={floor} />
         <path className="playhead-head" d={`M${(x(playQ) - 5).toFixed(1)} 0 L${(x(playQ) + 5).toFixed(1)} 0 L${x(playQ).toFixed(1)} 6 Z`} />
-        {hover !== undefined && <line className="hover-line" x1={x(hover)} x2={x(hover)} y1={0} y2={HEIGHT} />}
+        {hover !== undefined && <line className="hover-line" x1={x(hover)} x2={x(hover)} y1={0} y2={height} />}
       </svg>
       <div className="lane-label">Tempo</div>
       <div className="lane-readout">{hoverInfo ?? describe(playQ, map, index)}</div>
